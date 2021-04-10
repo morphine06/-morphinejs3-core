@@ -5,7 +5,7 @@
 	"main": "lib/main.js",
 	"scripts": {
 		"dev": "npx nodemon --watch src --exec 'npm run build'",
-		"build": "rm -fr libs/* && babel src -d lib --source-maps",
+		"build": "rm -fr lib/* && babel src -d lib --source-maps",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"author": "David Miglior",
