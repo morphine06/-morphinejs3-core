@@ -72,9 +72,11 @@ class Controller {
 		// if (req.dontSanitize !== true) Services.simpleSanitizeReq(req);
 		if (!this.model) return res.sendData("model_not_defined");
 		let row = await this._create(req);
+		if (!row) return res.sendData("insert_error");
 		res.sendData({ data: row });
 	}
 	async update(req, res) {
+		// console.log("update");
 		// if (req.dontSanitize !== true) Services.simpleSanitizeReq(req);
 		if (!this.model) return res.sendData("model_not_defined");
 		let row = await this._update(req);
@@ -113,7 +115,6 @@ class Controller {
 	async findCreateWhere(req) {
 		let where = "1=1",
 			whereData = [];
-		let model = this.model;
 		function findCreateWhereForField(tx, field, value) {
 			// console.log("field", field);
 			if (value.indexOf("contains:") === 0) {
@@ -143,7 +144,7 @@ class Controller {
 			}
 		}
 
-		Object.entries(model.def.attributes).forEach(([field, defField], index) => {
+		Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
 			// console.log("field", field, req.query[field]);
 			// if (defField.model) {
 			// 	let modelJoin = global[defField.model];
@@ -163,17 +164,15 @@ class Controller {
 	}
 
 	async _find(req) {
-		let model = this.model;
-
 		let { where, whereData } = await this.findCreateWhere(req);
 		// console.log("where,whereData", where, whereData);
 		let limit = await this.findCreateLimit(req);
 		let orderby = await this.findCreateOrderBy(req);
-		let toexec = model.find(where + orderby + limit, whereData);
+		let toexec = this.model.find(where + orderby + limit, whereData);
 		// console.log("where + orderby + limit, whereData", where + orderby + limit, whereData);
 		// if (this.populateOnFind) {
 		if (this.populateOnFind) {
-			Object.entries(model.def.attributes).forEach(([field, defField], index) => {
+			Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
 				if (defField.model) toexec.populate(field);
 			});
 		}
@@ -187,9 +186,9 @@ class Controller {
 		let total = rows.length;
 		if (limit) {
 			// console.log("where,whereData", where, whereData);
-			let toexec = model.count(where + orderby, whereData);
+			let toexec = this.model.count(where + orderby, whereData);
 			if (this.populateOnFind) {
-				Object.entries(model.def.attributes).forEach(([field, defField], index) => {
+				Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
 					if (defField.model) toexec.populate(field);
 				});
 			}
@@ -203,10 +202,8 @@ class Controller {
 
 	async createEmpty(req) {
 		//Services.simpleSanitizeReq(req);
-		let model = this.model;
-		let primary = this._getPrimary(model);
-		let row = model.createEmpty();
-		row[primary] = "";
+		let row = this.model.createEmpty();
+		row[this._getPrimary(this.model)] = "";
 		return row;
 	}
 	_getPrimary(model) {
@@ -219,10 +216,9 @@ class Controller {
 
 	async _findone(req, morePopulate = []) {
 		//Services.simpleSanitizeReq(req);
-		let model = this.model;
 		let where = "",
 			whereData = [],
-			primary = this._getPrimary(model),
+			primary = this._getPrimary(this.model),
 			row,
 			id = req.params.id || req.params[primary];
 
@@ -232,8 +228,8 @@ class Controller {
 		} else {
 			where += "t1." + primary + "=?";
 			whereData.push(id);
-			let toexec = model.findone(where, whereData);
-			Object.entries(model.def.attributes).forEach(([field, defField], index) => {
+			let toexec = this.model.findone(where, whereData);
+			Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
 				if (defField.model) toexec.populate(field);
 			});
 			morePopulate.forEach((field) => {
@@ -275,26 +271,25 @@ class Controller {
 	}
 
 	async _create(req) {
+		// console.log("req", req);
 		//Services.simpleSanitizeReq(req);
-		let model = this.model,
-			log = this.modellogevents,
-			primary = this._getPrimary(model),
-			newrow;
+		let primary = this._getPrimary(this.model);
 		// console.log("req.body", req.body);
 
 		this._checkPopulateSended(req);
-		// console.log("req.body2 :", req.body);
-		newrow = await model.create(req.body).exec(true);
+		let newrow = await this.model.create(req.body).exec(true);
+		if (!newrow) return null;
+		// console.log("req.body2 :", req.body, this.model, newrow);
 		// console.log("newrow :", newrow);
 		// console.log("newrow", newrow);
+		// console.log("req.params", req.params, newrow);
 		req.params.id = newrow[primary];
-		if (log) await this._log(req, "create", null, newrow);
+		if (this.modellogevents) await this._log(req, "create", null, newrow);
 		return await this._findone(req);
 	}
 
 	_checkPopulateSended(req) {
-		let model = this.model;
-		Object.entries(model.def.attributes).forEach(([field, defField], index) => {
+		Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
 			if (defField.model) {
 				// console.log("defField.model :", defField.model);
 				if (req.body[field] && this.isObject(req.body[field])) {
@@ -306,60 +301,56 @@ class Controller {
 		});
 	}
 
-	async _update(req, cb) {
+	async _update(req) {
 		//Services.simpleSanitizeReq(req);
-		let model = this.model,
-			primary = this._getPrimary(model),
+		let primary = this._getPrimary(this.model),
 			id = req.params.id || req.params[primary],
 			where = "" + primary + "=?",
 			whereData = [id],
-			log = this.modellogevents,
 			oldrow,
 			newrow;
-		if (log) {
-			oldrow = await model.findone(where, whereData).exec();
+		// console.log("log", log);
+		if (this.modellogevents) {
+			oldrow = await this.model.findone(where, whereData).exec();
 			if (!oldrow) return null;
 		}
 		delete req.body[primary];
 
 		this._checkPopulateSended(req);
-
-		let row = await model.update(where, whereData, req.body).exec(log);
+		let row = await this.model.update(where, whereData, req.body).exec();
 		if (!row) return null;
 		if (row.length) newrow = row[0];
-		if (log) await this._log(req, "update", oldrow, newrow);
+		if (this.modellogevents) await this._log(req, "update", oldrow, newrow);
 
 		return await this._findone(req);
 	}
 
 	async _destroy(req, updateDeleteField = false) {
 		//Services.simpleSanitizeReq(req);
-		let model = this.model,
-			where = "",
+		let where = "",
 			whereData = [],
-			primary = this._getPrimary(model),
+			primary = this._getPrimary(this.model),
 			oldrow,
 			log = this.modellogevents,
 			id = req.params.id || req.params[primary];
 		where = primary + "=?";
 		whereData = id;
 
-		oldrow = await model.findone(where, whereData).exec();
+		oldrow = await this.model.findone(where, whereData).exec();
 		if (!oldrow) return null;
 		if (log) await this._log(req, "destroy", oldrow, null);
 
 		if (updateDeleteField === false) {
-			await model.destroy(where, whereData).exec();
+			await this.model.destroy(where, whereData).exec();
 		} else {
 			let d = {};
 			d[updateDeleteField] = true;
-			await model.update(where, whereData, d).exec();
+			await this.model.update(where, whereData, d).exec();
 		}
 		return oldrow;
 	}
 	async _log(req, modelEvent, oldrow, newrow) {
-		let model = this.model,
-			primary = this._getPrimary(model),
+		let primary = this._getPrimary(this.model),
 			id = req.params.id || req.params[primary];
 		let c = "";
 		if (modelEvent == "create") c = newrow;

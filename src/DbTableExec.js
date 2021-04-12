@@ -12,6 +12,7 @@ module.exports = class DbTableExec {
 		this.selected = [];
 		this.command = "SELECT";
 		this.connection = table.connection;
+		this.returnCompleteRow = true;
 		this.primary = "id";
 		this.primaryType = "integer";
 		this.primaryLength = 11;
@@ -81,6 +82,7 @@ module.exports = class DbTableExec {
 		this.command = "UPDATE";
 		this.where = where;
 		this.data = data;
+		// console.log("where,data", where, data);
 		return this;
 	}
 	updateone(where, whereData, data) {
@@ -114,6 +116,10 @@ module.exports = class DbTableExec {
 	}
 	catchError() {
 		this.catchErr = true;
+		return this;
+	}
+	returnRow(returnCompleteRow) {
+		this.returnCompleteRow = returnCompleteRow;
 		return this;
 	}
 	populate(fieldJoin, fieldJoinName) {
@@ -253,9 +259,10 @@ module.exports = class DbTableExec {
 		// 		this.whereData.push(val);
 		// 	}
 		// });
-
+		// console.log("this.def.attributes", this.def.attributes);
 		for (const [key, val] of Object.entries(this.def.attributes)) {
-			if (val.primary && val.autoincrement) return;
+			// console.log("key", key, val);
+			if (val.primary && val.autoincrement) continue;
 			fields.push(key);
 			vals.push("?");
 			if (this.data.hasOwnProperty(key)) {
@@ -279,7 +286,7 @@ module.exports = class DbTableExec {
 				}
 			}
 		}
-
+		// console.log("fields,vals", fields, vals);
 		let query = "INSERT INTO " + this.def.tableName + "(" + fields.join(", ") + ") VALUES (" + vals.join(", ") + ")";
 		// console.log("query", query, this.data);
 		return query;
@@ -465,16 +472,12 @@ module.exports = class DbTableExec {
 	// 		}, returnCompleteRow);
 	// 	});
 	// }
-	async exec(cb, returnCompleteRow) {
-		if (_.isBoolean(cb) || cb === undefined) {
-			returnCompleteRow = cb;
-			cb = null;
-		}
-		// console.log("cb", cb);
-
+	async exec(returnCompleteRow = true) {
+		if (!this.returnCompleteRow) returnCompleteRow = false;
 		// console.log("this.command,this.data",this.command,this.data);
 		this._beforeQuery();
 		// console.log("after");
+		// console.log("this.command", this.command);
 		let query;
 		switch (this.command) {
 			case "QUERY":
@@ -483,6 +486,7 @@ module.exports = class DbTableExec {
 			case "INSERT":
 				this._preTreatment();
 				query = this._createInsertQuery();
+				// console.log("query", query);
 				break;
 			case "UPDATE":
 				this._preTreatment();
@@ -499,14 +503,15 @@ module.exports = class DbTableExec {
 		let rows;
 		try {
 			rows = await this.connection.query(query, this.whereData, this.catchErr);
+			// console.log("rows", rows);
 		} catch (error) {
 			throw error;
 		}
-		let data = this.postTreatmentMain(rows, returnCompleteRow);
+		let data = await this.postTreatmentMain(rows, returnCompleteRow);
 		return data;
 		// }
 	}
-	postTreatmentMain(rows, returnCompleteRow, cb) {
+	async postTreatmentMain(rows, returnCompleteRow) {
 		// if (returnCompleteRow) console.log("postTreatmentMain", rows);
 		let res;
 		// console.log("rows", rows);
@@ -520,17 +525,18 @@ module.exports = class DbTableExec {
 					res = [];
 					break;
 				case "UPDATE":
-					res = 0;
-					if (returnCompleteRow) res = {};
+					// res = 0;
+					// if (returnCompleteRow) res = {};
+					res = null;
 					break;
 				case "DELETE":
 					res = 0;
 					break;
 				case "INSERT":
-					this.data[this.primary] = rows.insertId;
+					// this.data[this.primary] = rows.insertId;
 					// res = this.data ;
-					res = "";
-					if (returnCompleteRow) res = {};
+					res = null;
+					// if (returnCompleteRow) res = null;
 					break;
 				default:
 					res = {};
@@ -565,17 +571,15 @@ module.exports = class DbTableExec {
 					} else res = rows;
 				}
 		}
-		// console.log("res",res);
+		// console.log("res", res, returnCompleteRow, this.command);
 		if (this.def.debug) console.warn("res", res);
 		// console.log('The solution is: ', rows);
 		if (returnCompleteRow && (this.command == "UPDATE" || this.command == "INSERT")) {
 			// console.log("this.command",this.command);
 			if (this.command == "UPDATE") {
-				this.table.find(this.original_where, this.original_whereData).exec((rows2) => {
-					// if (errsql) console.warn("errsql", errsql);
-					if (this.onlyOne) return rows2[0];
-					return rows2;
-				});
+				let rows2 = await this.table.find(this.original_where, this.original_whereData).exec();
+				if (this.onlyOne) return rows2[0];
+				return rows2;
 			} else {
 				let ftemp = {};
 				ftemp[this.primary] = res;
@@ -583,10 +587,9 @@ module.exports = class DbTableExec {
 					// console.log("res", res, this.primary, this.data);
 					ftemp[this.primary] = this.data[this.primary];
 				}
-				this.table.findone(ftemp).exec((rows2) => {
-					// if (errsql) console.warn("errsql", errsql);
-					return rows2;
-				});
+				let rows2 = await this.table.findone(ftemp).exec();
+				// if (errsql) console.warn("errsql", errsql);
+				return rows2;
 			}
 		} else return res;
 	}

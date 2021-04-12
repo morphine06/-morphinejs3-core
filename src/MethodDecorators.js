@@ -75,8 +75,8 @@ function Crud(url, model) {
 		});
 		target.prototype._routes.push({
 			method: "get",
-			url: url + ":id",
-			fn: transformController(url + ":id", target.prototype.findone),
+			url: url + "/:id",
+			fn: transformController(url + "/:id", target.prototype.findone),
 			name: "findone",
 			controllerName,
 		});
@@ -89,15 +89,15 @@ function Crud(url, model) {
 		});
 		target.prototype._routes.push({
 			method: "put",
-			url: url + ":id",
-			fn: transformController(url + ":id", target.prototype.update),
+			url: url + "/:id",
+			fn: transformController(url + "/:id", target.prototype.update),
 			name: "update",
 			controllerName,
 		});
 		target.prototype._routes.push({
 			method: "delete",
-			url: url + ":id",
-			fn: transformController(url + ":id", target.prototype.destroy),
+			url: url + "/:id",
+			fn: transformController(url + "/:id", target.prototype.destroy),
 			name: "destroy",
 			controllerName,
 		});

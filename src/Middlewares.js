@@ -23,6 +23,7 @@ function Middleware(middlewares = []) {
 										isCalled = true;
 									};
 									await mid.fn.apply(this, [args[0], args[1], next]);
+									console.log("isCalled", isCalled);
 									if (!isCalled) {
 										continuePlease = false;
 										break;
@@ -50,7 +51,7 @@ function Middleware(middlewares = []) {
 	};
 }
 
-async function loadMiddlewares() {
+async function loadRoutesMiddlewares() {
 	let middlewareFiles = globule.find(process.cwd() + "/src/**/*.middleware.js");
 	// console.log("middlewareFiles", middlewareFiles);
 	for (let i = 0; i < middlewareFiles.length; i++) {
@@ -62,4 +63,4 @@ async function loadMiddlewares() {
 	}
 }
 
-export { Middlewares, Middleware, loadMiddlewares };
+export { Middlewares, Middleware, loadRoutesMiddlewares };

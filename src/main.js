@@ -1,4 +1,3 @@
-import http from "http";
 // import path from "path";
 
 import { App } from "./App";
@@ -7,7 +6,7 @@ import { Services, Service, loadServices } from "./Services";
 import { Config } from "./Config";
 import { Controller, loadControllers } from "./Controller";
 import { Get, Post, Put, Delete, Crud } from "./MethodDecorators";
-import { Middlewares, Middleware, loadMiddlewares } from "./Middlewares";
+import { Middlewares, Middleware, loadRoutesMiddlewares } from "./Middlewares";
 
 import { DbMysql, Model, Models, Migration } from "./DbMysql";
 // const Models = DbMysql.models;
@@ -25,8 +24,9 @@ const MorphineJs = class {
 	}
 	async initExpress() {}
 	async initMiddlewares() {}
+	async initHttpServer() {}
 	initResSendData() {
-		App.use(function (req, res, next) {
+		return function (req, res, next) {
 			if (!Services.ErrorCodes) return next();
 			res.sendData = function (errorKeyOrData, status = 200) {
 				// console.log("this", this);
@@ -38,32 +38,30 @@ const MorphineJs = class {
 				} else {
 					data = errorKeyOrData;
 					data.err = null;
+					if (!data.meta) data.meta = {};
 				}
 				res.status(status).send(data);
 			};
 			next();
-		});
+		};
 	}
+	// async initMyMiddlewares() {
+	// 	await loadMiddlewares();
+	// }
+	// async initControllers() {
+	// 	await loadControllers();
+	// 	await this.notFound();
+	// }
 	async notFound() {}
 
 	async start() {
 		await this.initDb();
 		await this.executeMigration();
-		await loadServices();
+		// await loadServices();
 		await this.initExpress();
 		await this.initMiddlewares();
-		this.initResSendData();
-		await loadMiddlewares();
-		await loadControllers();
-		await this.notFound();
-
-		let server = http.createServer(App);
-		await new Promise((accept, reject) => {
-			server.listen(Config.app.port, () => {
-				accept();
-			});
-		});
-		console.warn(`Listening on ${Config.app.host} ! - ${Config.app.mode}`);
+		// this.initResSendData();
+		this.httpserver = await this.initHttpServer();
 	}
 };
 
@@ -86,4 +84,7 @@ export {
 	Middleware,
 	Middlewares,
 	Migration,
+	loadRoutesMiddlewares,
+	loadControllers,
+	loadServices,
 };
