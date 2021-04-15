@@ -1,4 +1,3 @@
-// var DbMysql = require("./DbMysql.server");
 var DbTableExec = require("./DbTableExec");
 
 module.exports = class DbTable {
@@ -22,10 +21,7 @@ module.exports = class DbTable {
 		var row = {};
 		for (const [fieldName, field] of Object.entries(this.def.attributes)) {
 			if (field.model) return;
-			// console.log("field",field);
 			row[fieldName] = "";
-			// console.log("field.type 7", field.type);
-			// console.log("ici7");
 			let typejs = this.DbMysql._ormTypeToDatabaseType(field.type, "", "typejs");
 			if (typejs == "number") row[fieldName] = 0;
 			if (typejs == "date") row[fieldName] = null;
@@ -40,7 +36,6 @@ module.exports = class DbTable {
 	}
 	select(fields) {
 		var exec = new DbTableExec(this);
-		// console.log("exec.select", exec.select);
 		return exec.select(fields);
 	}
 	find(where, whereData) {

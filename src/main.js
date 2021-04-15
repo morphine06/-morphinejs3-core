@@ -1,15 +1,11 @@
-// import path from "path";
-
 import { App } from "./App";
 import { Services, Service, loadServices } from "./Services";
-// console.log("Services", Services);
 import { Config } from "./Config";
 import { Controller, loadControllers } from "./Controller";
 import { Get, Post, Put, Delete, Crud } from "./MethodDecorators";
 import { Middlewares, Middleware, loadRoutesMiddlewares } from "./Middlewares";
 
 import { DbMysql, Model, Models, Migration } from "./DbMysql";
-// const Models = DbMysql.models;
 
 const rootDir = process.cwd();
 
@@ -29,7 +25,6 @@ const MorphineJs = class {
 		return function (req, res, next) {
 			if (!Services.ErrorCodes) return next();
 			res.sendData = function (errorKeyOrData, status = 200) {
-				// console.log("this", this);
 				let data;
 				errorKeyOrData = errorKeyOrData || {};
 				if (errorKeyOrData && typeof errorKeyOrData === "string") {
@@ -45,13 +40,6 @@ const MorphineJs = class {
 			next();
 		};
 	}
-	// async initMyMiddlewares() {
-	// 	await loadMiddlewares();
-	// }
-	// async initControllers() {
-	// 	await loadControllers();
-	// 	await this.notFound();
-	// }
 	async notFound() {}
 
 	async start() {

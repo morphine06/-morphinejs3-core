@@ -1,7 +1,5 @@
-// var DbMysql = require("./DbMysql.server");
 var _ = require("lodash");
 var dayjs = require("dayjs");
-// console.log("DbMysql", DbMysql);
 
 module.exports = class DbTableExec {
 	constructor(table) {
@@ -201,20 +199,19 @@ module.exports = class DbTableExec {
 	}
 	_createSelect() {
 		var tabSelect = [];
-		_.each(this.joinModels, (model, num) => {
+		this.joinModels.forEach((model, num) => {
 			for (const [fieldName] of Object.entries(this.DbMysql.models[model.modelname].def.attributes)) {
 				let as = "";
 				if (model.modelnameto) as = " AS " + model.modelalias + "_" + model.fieldJoin + "_" + fieldName;
 				tabSelect.push(model.modelalias + "." + fieldName + as);
 			}
 		});
-		// console.log("tabSelect", tabSelect);
 		if (this.selected.length) tabSelect = this.selected;
 		return tabSelect.join(", ");
 	}
 	_createJoin() {
 		let tabJoin = [];
-		_.each(this.joinModels, (model, num) => {
+		this.joinModels.forEach((model, num) => {
 			if (!model.modelnameto) tabJoin.push(this.DbMysql.models[model.modelname].def.tableName + " " + model.modelalias);
 			else
 				tabJoin.push(
@@ -244,24 +241,13 @@ module.exports = class DbTableExec {
 		if (this.iscount) {
 			query =
 				"SELECT count(t1." + this.primary + ") as cmpt FROM " + this._createJoin() + " WHERE " + this._createWhere() + this._createOrder();
-			// console.log("query", query);
 		}
-		// console.log("query", query);
 		return query;
 	}
 	_createInsertQuery() {
 		let fields = [],
 			vals = [];
-		// _.each(this.data, (val, key) => {
-		// 	if (this.def.attributes[key]) {
-		// 		fields.push(key);
-		// 		vals.push("?");
-		// 		this.whereData.push(val);
-		// 	}
-		// });
-		// console.log("this.def.attributes", this.def.attributes);
 		for (const [key, val] of Object.entries(this.def.attributes)) {
-			// console.log("key", key, val);
 			if (val.primary && val.autoincrement) continue;
 			fields.push(key);
 			vals.push("?");
@@ -286,20 +272,17 @@ module.exports = class DbTableExec {
 				}
 			}
 		}
-		// console.log("fields,vals", fields, vals);
 		let query = "INSERT INTO " + this.def.tableName + "(" + fields.join(", ") + ") VALUES (" + vals.join(", ") + ")";
-		// console.log("query", query, this.data);
 		return query;
 	}
 	_createUpdateQuery() {
 		let vals = [];
-		_.each(this.data, (val, key) => {
+		for (const [key, val] of Object.entries(this.data)) {
 			if (this.def.attributes[key]) {
 				vals.push(key + "=?");
 				this.whereData.push(val);
 			}
-		});
-		// this.original_where, this.original_whereData
+		}
 		let query = "UPDATE " + this.def.tableName + " SET " + vals.join(", ") + " WHERE " + this._createWhere(true);
 		return query;
 	}
@@ -308,8 +291,6 @@ module.exports = class DbTableExec {
 		return query;
 	}
 	_preTreatment() {
-		// console.log("this.data",this.data);
-
 		for (const [fieldName, field] of Object.entries(this.def.attributes)) {
 			// console.log("fieldName,field.type",fieldName,field.type);
 			if (this.data[fieldName] === undefined) return;
@@ -326,13 +307,9 @@ module.exports = class DbTableExec {
 			if (field.type == "json" && !_.isObject(val)) {
 				try {
 					this.data[key] = JSON.parse(this.data[key]);
-					// console.log("this.data[key]",this.data[key]);
-				} catch (e) {
-					// console.log("json stringify error",e);
-				}
+				} catch (e) {}
 				try {
 					this.data[key] = JSON.stringify(this.data[key]);
-					// console.log("this.data[key]",this.data[key]);
 				} catch (e) {
 					console.warn("json stringify error", e);
 					this.data[key] = "";
@@ -363,17 +340,10 @@ module.exports = class DbTableExec {
 					this.data[fieldName] = "0000-00-00 00:00:00";
 				else this.data[fieldName] = m.format("YYYY-MM-DD HH:mm:ss");
 			}
-			// if (field.type == "datetime") {
-			// 	if (_.isDate(this.data[fieldName])) this.data[fieldName] = moment(this.data[fieldName]).format("YYYY-MM-DD HH:mm:ss");
-			// }
-			// if (field.type == "date") {
-			// 	if (_.isDate(this.data[fieldName])) this.data[fieldName] = moment(this.data[fieldName]).format("YYYY-MM-DD");
-			// }
 		}
 	}
 	_postTreatment(rows) {
-		// if (this.iscount) console.log("rows", rows);
-		_.each(rows, (row) => {
+		rows.forEach((row) => {
 			for (const [fieldName, field] of Object.entries(this.def.attributes)) {
 				if (field.type == "json") {
 					try {
@@ -389,10 +359,8 @@ module.exports = class DbTableExec {
 					else row[fieldName] = false;
 				}
 			}
-			// let alreadyOrigins = [];
-			_.each(this.joinModels, (model, num) => {
+			this.joinModels.forEach((model, num) => {
 				if (model.modelnameto) {
-					// this._setObjectToRow(row, row, model.modelname, model.modelnameto, model.fieldJoin) ;
 					let obj = {};
 
 					for (const [fieldName, field] of Object.entries(this.DbMysql.models[model.modelname].def.attributes)) {
@@ -412,18 +380,16 @@ module.exports = class DbTableExec {
 							delete row[f];
 						}
 					}
-					// console.log("model.fieldJoinName", model.fieldJoinName);
 					if (model.fieldJoinName) {
 						row[model.fieldJoinName] = obj;
 					} else {
 						if (!obj[this.DbMysql.models[model.modelname].primary]) {
-							// console.log("M_Db.models[model.modelname].primary",M_Db.models[model.modelname].primary, obj);
 							obj = null;
 						}
 						let tabFieldsJoins = model.origin.split(".");
 						let previousObj = row;
 						let lastO = null;
-						_.each(tabFieldsJoins, (o, index) => {
+						tabFieldsJoins.forEach((o, index) => {
 							lastO = o;
 							if (index >= tabFieldsJoins.length - 1) return;
 							previousObj = previousObj[o];
@@ -465,19 +431,9 @@ module.exports = class DbTableExec {
 		if (fn) await fn(this.data);
 		else if (fn2) await fn();
 	}
-	// async aexec(returnCompleteRow) {
-	// 	return new Promise((resolve, reject) => {
-	// 		this.exec(data => {
-	// 			resolve(data);
-	// 		}, returnCompleteRow);
-	// 	});
-	// }
 	async exec(returnCompleteRow = true) {
 		if (!this.returnCompleteRow) returnCompleteRow = false;
-		// console.log("this.command,this.data",this.command,this.data);
 		this._beforeQuery();
-		// console.log("after");
-		// console.log("this.command", this.command);
 		let query;
 		switch (this.command) {
 			case "QUERY":
@@ -486,7 +442,6 @@ module.exports = class DbTableExec {
 			case "INSERT":
 				this._preTreatment();
 				query = this._createInsertQuery();
-				// console.log("query", query);
 				break;
 			case "UPDATE":
 				this._preTreatment();
@@ -503,7 +458,6 @@ module.exports = class DbTableExec {
 		let rows;
 		try {
 			rows = await this.connection.query(query, this.whereData, this.catchErr);
-			// console.log("rows", rows);
 		} catch (error) {
 			throw error;
 		}
@@ -512,31 +466,21 @@ module.exports = class DbTableExec {
 		// }
 	}
 	async postTreatmentMain(rows, returnCompleteRow) {
-		// if (returnCompleteRow) console.log("postTreatmentMain", rows);
 		let res;
-		// console.log("rows", rows);
 		if (!rows) {
-			// console.log('query',query);
-			// console.log('whereData',this.whereData);
-			// console.warn("err", rows);
 			res = {};
 			switch (this.command) {
 				case "QUERY":
 					res = [];
 					break;
 				case "UPDATE":
-					// res = 0;
-					// if (returnCompleteRow) res = {};
 					res = null;
 					break;
 				case "DELETE":
 					res = 0;
 					break;
 				case "INSERT":
-					// this.data[this.primary] = rows.insertId;
-					// res = this.data ;
 					res = null;
-					// if (returnCompleteRow) res = null;
 					break;
 				default:
 					res = {};
@@ -550,14 +494,11 @@ module.exports = class DbTableExec {
 				break;
 			case "UPDATE":
 				res = rows.affectedRows;
-				// console.log("rows",rows);
 				break;
 			case "DELETE":
 				res = rows.affectedRows;
 				break;
 			case "INSERT":
-				// this.data[this.primary] = rows.insertId;
-				// res = this.data ;
 				res = rows.insertId;
 				if (res) this.data[this.primary] = rows.insertId;
 				break;
@@ -571,11 +512,8 @@ module.exports = class DbTableExec {
 					} else res = rows;
 				}
 		}
-		// console.log("res", res, returnCompleteRow, this.command);
 		if (this.def.debug) console.warn("res", res);
-		// console.log('The solution is: ', rows);
 		if (returnCompleteRow && (this.command == "UPDATE" || this.command == "INSERT")) {
-			// console.log("this.command",this.command);
 			if (this.command == "UPDATE") {
 				let rows2 = await this.table.find(this.original_where, this.original_whereData).exec();
 				if (this.onlyOne) return rows2[0];
@@ -584,11 +522,9 @@ module.exports = class DbTableExec {
 				let ftemp = {};
 				ftemp[this.primary] = res;
 				if (!res) {
-					// console.log("res", res, this.primary, this.data);
 					ftemp[this.primary] = this.data[this.primary];
 				}
 				let rows2 = await this.table.findone(ftemp).exec();
-				// if (errsql) console.warn("errsql", errsql);
 				return rows2;
 			}
 		} else return res;

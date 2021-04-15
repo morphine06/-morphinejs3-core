@@ -3,13 +3,10 @@ import dayjs from "dayjs";
 
 import { App } from "./App";
 import { Services } from "./Services";
-// import { DbMysql, Model, Models } from "./DbMysql";
 import { Middlewares } from "./Middlewares";
-// import { Config } from "./Config";
 
 function Crud(url) {
 	return function decorator(target) {
-		// console.log("1");
 		target.prototype.isCrud = url;
 	};
 }
@@ -25,14 +22,10 @@ class Controller {
 		});
 	}
 	_addRoutes() {
-		// console.log("this._routes", this._routes);
 		this._routes.forEach((route) => {
-			// console.log("this", this, route);
-			// console.log("this._middlewares", this._middlewares, Middlewares);
 			App[route.method](route.url, (req, res, next) => {
 				let timer = new Date();
 				req.on("end", (...args) => {
-					// console.log("onend args", args);
 					let diff = dayjs().diff(timer);
 					if (diff > 1000) diff = diff / 1000 + "s";
 					else diff += "ms";
@@ -55,36 +48,29 @@ class Controller {
 	}
 
 	async find(req, res) {
-		// if (req.dontSanitize !== true) Services.simpleSanitizeReq(req);
-		// console.log("find this.model", this.model);
 		if (!this.model) return res.sendData("model_not_defined");
 		let { rows, total } = await this._find(req);
 		res.sendData({ data: rows, meta: { total: total } });
 	}
 	async findone(req, res) {
-		// if (req.dontSanitize !== true) Services.simpleSanitizeReq(req);
 		if (!this.model) return res.sendData(res, "model_not_defined");
 		let row = await this._findone(req);
 		if (!row) return res.sendData("not_found");
 		res.sendData({ data: row });
 	}
 	async create(req, res) {
-		// if (req.dontSanitize !== true) Services.simpleSanitizeReq(req);
 		if (!this.model) return res.sendData("model_not_defined");
 		let row = await this._create(req);
 		if (!row) return res.sendData("insert_error");
 		res.sendData({ data: row });
 	}
 	async update(req, res) {
-		// console.log("update");
-		// if (req.dontSanitize !== true) Services.simpleSanitizeReq(req);
 		if (!this.model) return res.sendData("model_not_defined");
 		let row = await this._update(req);
 		if (!row) return res.sendData("not_found");
 		res.sendData({ data: row });
 	}
 	async destroy(req, res) {
-		// if (req.dontSanitize !== true) Services.simpleSanitizeReq(req);
 		if (!this.model) return res.sendData({ err: Services.err(501), data: null });
 		let oldrow = await this._destroy(req);
 		res.sendData({ data: oldrow });
@@ -92,7 +78,6 @@ class Controller {
 
 	async findCreateOrderBy(req) {
 		let orderby = "";
-		// @Marina je corrige ici, car il faut rajouter le orderSort, uniquement s'il y a un req.query.sort
 		if (req.query.sort) {
 			let orderSort = "";
 			if (req.query.order_sort) orderSort = req.query.order_sort.replace(/\\/g, "");
@@ -107,7 +92,6 @@ class Controller {
 			skip = req.query.skip * 1;
 		}
 		if (req.query.limit != undefined && typeof (req.query.limit * 1) === "number") {
-			// if (!req.query.skip || !_.isNumber(req.query.skip * 1)) req.query.skip = 0;
 			limit = " limit " + skip + "," + req.query.limit * 1;
 		}
 		return limit;
@@ -116,7 +100,6 @@ class Controller {
 		let where = "1=1",
 			whereData = [];
 		function findCreateWhereForField(tx, field, value) {
-			// console.log("field", field);
 			if (value.indexOf("contains:") === 0) {
 				where += " && " + tx + "." + field + " like ?";
 				whereData.push("%" + value.substring(9) + "%");
@@ -145,47 +128,27 @@ class Controller {
 		}
 
 		Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
-			// console.log("field", field, req.query[field]);
-			// if (defField.model) {
-			// 	let modelJoin = global[defField.model];
-			// 	_.each(modelJoin.def.attributes, (defFieldJoin, fieldJoin) => {
-			// 		if (req.query[fieldJoin]) findCreateWhereForField("t1",fieldJoin, req.query[fieldJoin]);
-			// 		if (req.query[fieldJoin + "__"]) findCreateWhereForField("t1",fieldJoin, req.query[fieldJoin + "__"]);
-			// 	});
-			// } else {
 			if (req.query[field]) findCreateWhereForField("t1", field, req.query[field] + "");
 			if (req.query[field + "_"]) findCreateWhereForField("t1", field, req.query[field + "_"]);
 			if (req.query[field + "__"]) findCreateWhereForField("t1", field, req.query[field + "__"]);
 			if (req.query[field + "___"]) findCreateWhereForField("t1", field, req.query[field + "___"]);
-			// }
 		});
-		// console.log("where,whereData", where, whereData);
 		return { where, whereData };
 	}
 
 	async _find(req) {
 		let { where, whereData } = await this.findCreateWhere(req);
-		// console.log("where,whereData", where, whereData);
 		let limit = await this.findCreateLimit(req);
 		let orderby = await this.findCreateOrderBy(req);
 		let toexec = this.model.find(where + orderby + limit, whereData);
-		// console.log("where + orderby + limit, whereData", where + orderby + limit, whereData);
-		// if (this.populateOnFind) {
 		if (this.populateOnFind) {
 			Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
 				if (defField.model) toexec.populate(field);
 			});
 		}
-		// }
-		// let t0;
-		// t0 = moment();
 		let rows = await toexec.exec();
-		// console.log("rows", rows);
-		// console.log("diff1", t0.diff(moment()));
-		// t0 = moment();
 		let total = rows.length;
 		if (limit) {
-			// console.log("where,whereData", where, whereData);
 			let toexec = this.model.count(where + orderby, whereData);
 			if (this.populateOnFind) {
 				Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
@@ -193,15 +156,11 @@ class Controller {
 				});
 			}
 			total = await toexec.exec();
-			// console.log("rows_temp", rows_temp);
-			// total = rows_temp.length;
 		}
-		// console.log("diff2", t0.diff(moment()));
 		return { rows, total };
 	}
 
 	async createEmpty(req) {
-		//Services.simpleSanitizeReq(req);
 		let row = this.model.createEmpty();
 		row[this._getPrimary(this.model)] = "";
 		return row;
@@ -215,7 +174,6 @@ class Controller {
 	}
 
 	async _findone(req, morePopulate = []) {
-		//Services.simpleSanitizeReq(req);
 		let where = "",
 			whereData = [],
 			primary = this._getPrimary(this.model),
@@ -223,7 +181,6 @@ class Controller {
 			id = req.params.id || req.params[primary];
 
 		if (id * 1 < 0) {
-			// console.log("createempty");
 			row = await this.createEmpty(req);
 		} else {
 			where += "t1." + primary + "=?";
@@ -241,17 +198,12 @@ class Controller {
 	}
 
 	_compareData(oldData, newData) {
-		// console.log("oldData, newData", oldData, newData);
 		var compare = {};
 		Object.entries(oldData).forEach(([keyoldval, oldval], index) => {
-			// console.log("keyoldval, typeof ok[keyoldval]", keyoldval, typeof ok[keyoldval]);
-			// if (_.isArray(ok[keyoldval])) return ;
-			// if (_.isPlainObject(ok[keyoldval])) return ;
 			if (keyoldval == "updatedAt") return;
 			if (keyoldval == "createdAt") return;
 			if (newData[keyoldval] == undefined) return;
 			var newval = newData[keyoldval];
-			// console.log("oldval, newval", keyoldval, oldval, newval, typeof oldval, typeof newval);
 			if (!oldval && !newval) return;
 			if (oldval && oldval instanceof Date && !isNaN(oldval.valueOf())) oldval = oldval.toString();
 			if (newval && newval instanceof Date && !isNaN(newval.valueOf())) newval = newval.toString();
@@ -271,18 +223,11 @@ class Controller {
 	}
 
 	async _create(req) {
-		// console.log("req", req);
-		//Services.simpleSanitizeReq(req);
 		let primary = this._getPrimary(this.model);
-		// console.log("req.body", req.body);
 
 		this._checkPopulateSended(req);
 		let newrow = await this.model.create(req.body).exec(true);
 		if (!newrow) return null;
-		// console.log("req.body2 :", req.body, this.model, newrow);
-		// console.log("newrow :", newrow);
-		// console.log("newrow", newrow);
-		// console.log("req.params", req.params, newrow);
 		req.params.id = newrow[primary];
 		if (this.modellogevents) await this._log(req, "create", null, newrow);
 		return await this._findone(req);
@@ -291,7 +236,6 @@ class Controller {
 	_checkPopulateSended(req) {
 		Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
 			if (defField.model) {
-				// console.log("defField.model :", defField.model);
 				if (req.body[field] && this.isObject(req.body[field])) {
 					let modelToJoin = global[defField.model];
 					let primaryToJoin = this._getPrimary(modelToJoin);
@@ -302,14 +246,12 @@ class Controller {
 	}
 
 	async _update(req) {
-		//Services.simpleSanitizeReq(req);
 		let primary = this._getPrimary(this.model),
 			id = req.params.id || req.params[primary],
 			where = "" + primary + "=?",
 			whereData = [id],
 			oldrow,
 			newrow;
-		// console.log("log", log);
 		if (this.modellogevents) {
 			oldrow = await this.model.findone(where, whereData).exec();
 			if (!oldrow) return null;
@@ -326,7 +268,6 @@ class Controller {
 	}
 
 	async _destroy(req, updateDeleteField = false) {
-		//Services.simpleSanitizeReq(req);
 		let where = "",
 			whereData = [],
 			primary = this._getPrimary(this.model),
@@ -369,27 +310,7 @@ class Controller {
 	async policy(req, res) {
 		return true;
 	}
-	// policies(req, res, next) {
-	// 	console.log("iciciicci");
-	// 	let ok = true;
-	// 	async.eachSeries(
-	// 		req.policies,
-	// 		(policy, nextPolicy) => {
-	// 			if (!Policies[policy]) {
-	// 				console.warn("Policy " + policy + " not found");
-	// 				ok = false;
-	// 				return nextPolicy();
-	// 			}
-	// 			Policies[policy](req, res, ok => {
-	// 				if (!ok) ok = false;
-	// 				nextPolicy();
-	// 			});
-	// 		},
-	// 		() => {
-	// 			next(ok);
-	// 		}
-	// 	);
-	// }
+
 	render(page, params) {
 		this.res.render(page, params);
 	}
@@ -405,16 +326,6 @@ async function loadControllers() {
 			c._addRoutes();
 		});
 	}
-	// last route is not found
-	// App.use(async (req, res, next) => {
-	// 	if (Services.Middlewares.notFound) {
-	// 		await Services.Middlewares.notFound(req, res, next);
-	// 	} else {
-	// 		if (req.accepts("html")) return res.status(404).render("404", { Config, cache: Config.app.mode != "development" });
-	// 		if (req.accepts("json")) return res.status(404).json({ error: "Not found" });
-	// 		res.status(404).type("txt").send("Not found");
-	// 	}
-	// });
 }
 
 export { Controller, Crud, loadControllers };

@@ -10,7 +10,6 @@ function Middleware(middlewares = []) {
 			const original = descriptor.value;
 			if (typeof original === "function") {
 				descriptor.value = async function (...args) {
-					// console.log("args", args.length);
 					try {
 						let continuePlease = true;
 						if (target._middlewaresByRoute && target._middlewaresByRoute[name]) {
@@ -23,7 +22,6 @@ function Middleware(middlewares = []) {
 										isCalled = true;
 									};
 									await mid.fn.apply(this, [args[0], args[1], next]);
-									console.log("isCalled", isCalled);
 									if (!isCalled) {
 										continuePlease = false;
 										break;
@@ -38,7 +36,6 @@ function Middleware(middlewares = []) {
 						throw e;
 					}
 				};
-				// console.log("target", target);
 				if (!target._middlewaresByRoute) target._middlewaresByRoute = {};
 				if (!target._middlewaresByRoute[name]) target._middlewaresByRoute[name] = [];
 				target._middlewaresByRoute[name] = [...target._middlewaresByRoute[name], ...middlewares];
@@ -53,7 +50,6 @@ function Middleware(middlewares = []) {
 
 async function loadRoutesMiddlewares() {
 	let middlewareFiles = globule.find(process.cwd() + "/src/**/*.middleware.js");
-	// console.log("middlewareFiles", middlewareFiles);
 	for (let i = 0; i < middlewareFiles.length; i++) {
 		const middlewareFile = middlewareFiles[i];
 		let obj = await import(middlewareFile);

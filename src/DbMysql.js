@@ -1,12 +1,6 @@
-// "use strict";
-
-// var _ = require("lodash");
-// var async = require("async");
-// var fs = require("fs-extra");
 var path = require("path");
 var mysql = require("mysql2/promise");
 
-// var request = require("request");
 var globule = require("globule");
 var DbTable = require("./DbTable");
 
@@ -16,11 +10,6 @@ var DbMysql = new (class {
 	}
 	async init(config) {
 		this.config = config;
-		// console.log("this.config",this.config);
-		// this.config.mysql.connection.debug = true ;
-
-		// this.connection = mysql.createConnection(this.config.connection);
-		// this.connection.connect();
 		var pool = mysql.createPool(this.config.connection);
 		this.connection = {
 			pool: pool,
@@ -48,11 +37,7 @@ var DbMysql = new (class {
 			},
 		};
 
-		// await this.connection.query("CREATE DATABASE IF NOT EXISTS " + this.config.connection.database);
-
 		let files = globule.find(process.cwd() + "/src/**/*.model.js");
-		// console.log("files", files);
-		// files.forEach(async (file) => {
 		for (let iFile = 0; iFile < files.length; iFile++) {
 			let file = files[iFile];
 			file = file.substring(0, file.length - 3);
@@ -62,7 +47,6 @@ var DbMysql = new (class {
 			if (def.useCreatedAt === undefined) def.useCreatedAt = true;
 			if (def.useCreatedAt) def.attributes["createdAt"] = { type: "datetime", index: true };
 			if (def.useUpdatedAt) def.attributes["updatedAt"] = { type: "datetime", index: true };
-			// if (!def.tableName) def.tableName = file.toLowerCase();
 			def.modelname = path.basename(file);
 			def.modelname = def.modelname.substring(0, def.modelname.length - 6);
 			// console.log("def.modelname", def.modelname);
@@ -71,13 +55,6 @@ var DbMysql = new (class {
 			this.models[def.modelname] = new DbTable(def, this);
 		}
 
-		// for (let iFile = 0; iFile < files.length; iFile++) {
-		// 	let file = files[iFile];
-		// 	file = file.substring(0, file.length - 3);
-		// 	let modelname = path.basename(file);
-		// 	modelname = modelname.substring(0, modelname.length - 6);
-		// 	await this.synchronize(this.models[modelname].def);
-		// }
 		for (const model of Object.values(this.models)) {
 			await this.synchronize(model.def);
 		}
@@ -85,10 +62,6 @@ var DbMysql = new (class {
 		for (const model of Object.values(this.models)) {
 			await this.constraints(model);
 		}
-
-		// console.log("this.models", this.models);
-
-		// select COLUMN_NAME, CONSTRAINT_NAME, REFERENCED_COLUMN_NAME, REFERENCED_TABLE_NAME from information_schema.KEY_COLUMN_USAGE where TABLE_NAME = 'actions'
 	}
 
 	async constraints(model) {
@@ -96,8 +69,6 @@ var DbMysql = new (class {
 		for (const [fieldName, field] of Object.entries(model.def.attributes)) {
 			if (field.model) toLink.push({ key: fieldName, val: field });
 		}
-		// console.log("toLink", toLink);
-		// console.log("this.models", this.models);
 		if (toLink.length) {
 			let q = `select * from information_schema.KEY_COLUMN_USAGE where TABLE_NAME='${model.def.tableName}' && TABLE_SCHEMA='${this.config.connection.database}'`; //COLUMN_NAME, CONSTRAINT_NAME, REFERENCED_COLUMN_NAME, REFERENCED_TABLE_NAME
 			let actualConstraints = await this.connection.query(q);
@@ -110,7 +81,6 @@ var DbMysql = new (class {
 					const actualConstraint = actualConstraints[iActualConstraint];
 					let q2 = `select * from information_schema.referential_constraints where \`CONSTRAINT_NAME\` like '${actualConstraint.CONSTRAINT_NAME}'`;
 					let actualConstraintBis = (await this.connection.query(q2))[0];
-					// console.log("actualConstraint, actualConstraintsBis", actualConstraint, actualConstraintBis);
 					if (!this.models[link.val.model]) {
 						console.warn(`Model not found : ${link.val.model}`);
 						continue;
@@ -127,7 +97,6 @@ var DbMysql = new (class {
 						}
 					}
 				}
-				// console.log("tocreate,todelete", tocreate, todelete);
 				if (todelete) {
 					let q = `ALTER TABLE \`${model.def.tableName}\` DROP FOREIGN KEY \`${todelete}\``;
 					console.warn(q);
@@ -143,7 +112,6 @@ var DbMysql = new (class {
 					await this.connection.query(q);
 				}
 			}
-			// console.log("constraintsToCreate", constraintsToCreate);
 		}
 	}
 
@@ -171,7 +139,6 @@ var DbMysql = new (class {
 	}
 	async updateTable(def) {
 		let describe = await this.connection.query("DESCRIBE " + def.tableName + "");
-		// console.log("describe", describe);
 		for (const [fieldName, field] of Object.entries(def.attributes)) {
 			let type1 = null;
 			if (field.model) {
@@ -195,7 +162,6 @@ var DbMysql = new (class {
 				}
 			}
 
-			// console.log("type2", type2);
 			if (type2 === null) {
 				if (field.model) {
 					var f = this._getJoinedModel(field);
@@ -236,16 +202,12 @@ var DbMysql = new (class {
 		}
 	}
 	async synchronize(def) {
-		// console.log("model", model);
-		// let def = model.def;
-
 		let exists = true;
 
 		let rows1 = await this.connection.query("SELECT * FROM " + def.tableName + " LIMIT 0,1");
 		if (rows1 && this.config.migrate == "recreate") await this.connection.query("DROP TABLE IF EXISTS " + def.tableName + "");
 		if (rows1 === null || this.config.migrate == "recreate") exists = false;
 
-		// console.log("this.config.migrate", this.config.migrate);
 		if (this.config.migrate == "alter") {
 			if (!exists) await this.createTable(def);
 			else await this.updateTable(def);
@@ -258,7 +220,6 @@ var DbMysql = new (class {
 					for (let iRows = 0; iRows < rows2.length; iRows++) {
 						const row2 = rows2[iRows];
 						if (row2.Column_name == fieldName) createIndex = false;
-						// console.log("row2.Column_name, fieldName", row2.Column_name, fieldName);
 					}
 				}
 				if (createIndex) {
@@ -270,7 +231,6 @@ var DbMysql = new (class {
 		}
 	}
 	_ormTypeToDatabaseType(ormtype, length, info) {
-		// console.log("ormtype,length", ormtype, length);
 		if (!info) info = "type";
 		let typeJS = "";
 		ormtype = ormtype.toLowerCase();
@@ -399,7 +359,6 @@ var DbMysql = new (class {
 		return defaultsTo;
 	}
 	_getJoinedModel(field) {
-		// console.log("field",field);
 		if (this.models[field.model]) {
 			return [this.models[field.model].primaryType, this.models[field.model].primaryLength];
 		} else {
@@ -416,7 +375,6 @@ function Model(models = []) {
 	if (models instanceof Array) {
 	} else models = [models];
 	return function decorator(target) {
-		// console.log("modelName", modelName, target);
 		if (!target.prototype._models) target.prototype._models = [];
 		target.prototype._models = [...target.prototype._models, ...models];
 	};
@@ -429,6 +387,5 @@ const Migration = new (class {
 	exec() {}
 })();
 
-// module.exports = DbMysql;
 const Models = DbMysql.models;
 export { DbMysql, Model, Models, Migration };
