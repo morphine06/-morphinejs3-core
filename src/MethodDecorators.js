@@ -4,6 +4,8 @@ function transformController(url, original) {
 	return async function (...args) {
 		try {
 			if (!this._timer) this._timer = new Date();
+			this.req = args[0];
+			this.res = args[1];
 			await original.apply(this, args);
 		} catch (e) {
 			if (Services.Middlewares.catchControllerErrors) {
@@ -54,8 +56,8 @@ function Crud(url, model) {
 		});
 		target.prototype._routes.push({
 			method: "get",
-			url: url + "/:id",
-			fn: transformController(url + "/:id", target.prototype.findone),
+			url: `${url}/:id`,
+			fn: transformController(`${url}/:id`, target.prototype.findone),
 			name: "findone",
 			controllerName,
 		});
@@ -68,15 +70,15 @@ function Crud(url, model) {
 		});
 		target.prototype._routes.push({
 			method: "put",
-			url: url + "/:id",
-			fn: transformController(url + "/:id", target.prototype.update),
-			name: "update",
+			url: `${url}/:id`,
+			fn: transformController(`${url}/:id`, target.prototype.update),
+			name: "updateone",
 			controllerName,
 		});
 		target.prototype._routes.push({
 			method: "delete",
-			url: url + "/:id",
-			fn: transformController(url + "/:id", target.prototype.destroy),
+			url: `${url}/:id`,
+			fn: transformController(`${url}/:id`, target.prototype.destroy),
 			name: "destroy",
 			controllerName,
 		});

@@ -5,11 +5,11 @@ import { App } from "./App";
 import { Services } from "./Services";
 import { Middlewares } from "./Middlewares";
 
-function Crud(url) {
-	return function decorator(target) {
-		target.prototype.isCrud = url;
-	};
-}
+// function Crud(url) {
+// 	return function decorator(target) {
+// 		target.prototype.isCrud = url;
+// 	};
+// }
 
 class Controller {
 	constructor() {
@@ -30,7 +30,7 @@ class Controller {
 					if (diff > 1000) diff = diff / 1000 + "s";
 					else diff += "ms";
 					// eslint-disable-next-line
-					console.log(dayjs().format("YYYY-MM-DD HH:mm:ss") + " - GET " + route.url + " - " + diff);
+					console.log(`${dayjs().format("YYYY-MM-DD HH:mm:ss")} - GET ${route.url} - ${diff}`);
 				});
 				next();
 			});
@@ -47,10 +47,10 @@ class Controller {
 		this.describeRoutes();
 	}
 
-	async find(req, res) {
-		if (!this.model) return res.sendData("model_not_defined");
-		let { rows, total } = await this._find(req);
-		res.sendData({ data: rows, meta: { total: total } });
+	async find() {
+		if (!this.model) return this.res.sendData("model_not_defined");
+		let { rows, total } = await this.findExec();
+		this.res.sendData({ data: rows, meta: { total: total } });
 	}
 	async findone(req, res) {
 		if (!this.model) return res.sendData(res, "model_not_defined");
@@ -85,16 +85,21 @@ class Controller {
 		}
 		return orderby;
 	}
+	debug() {
+		this.debugQuery = true;
+		return this;
+	}
 	async findCreateLimit(req) {
-		let limit = "",
+		let limit = 0,
 			skip = 0;
-		if (req.query.skip != undefined && req.query.skip != "NaN" && typeof (req.query.skip * 1) === "number") {
+		if (req.query.skip && req.query.skip != "NaN" && typeof (req.query.skip * 1) === "number") {
 			skip = req.query.skip * 1;
 		}
-		if (req.query.limit != undefined && typeof (req.query.limit * 1) === "number") {
-			limit = " limit " + skip + "," + req.query.limit * 1;
+		if (req.query.limit && req.query.limit != "NaN" && typeof (req.query.limit * 1) === "number") {
+			limit = req.query.limit * 1;
 		}
-		return limit;
+		if (skip > 0 && limit === 0) limit = 1844674407370955161;
+		return { limit, skip };
 	}
 	async findCreateWhere(req) {
 		let where = "1=1",
@@ -136,11 +141,35 @@ class Controller {
 		return { where, whereData };
 	}
 
-	async _find(req) {
+	// async findWhere(fn) {
+	// 	this._findWhere = fn;
+	// }
+	// async findLimit(fn) {
+	// 	this._findLimit = fn;
+	// }
+	// async findOrderBy(fn) {
+	// 	this._findOrderBy = fn;
+	// }
+	async findExec(what = {}) {
+		let req = this.req;
 		let { where, whereData } = await this.findCreateWhere(req);
-		let limit = await this.findCreateLimit(req);
+		if (what.where) {
+			let r = await what.where(where, whereData);
+			where = r.where;
+			whereData = r.whereData;
+		}
+		let { limit, skip } = await this.findCreateLimit(req);
+		if (what.limit) {
+			let r = await what.limit(limit, skip);
+			limit = r.limit;
+			skip = r.skip;
+		}
+		let limitreq = limit || skip ? ` limit ${skip},${limit}` : "";
 		let orderby = await this.findCreateOrderBy(req);
-		let toexec = this.model.find(where + orderby + limit, whereData);
+		if (what.orderBy) orderby = await what.orderBy(orderby);
+		// eslint-disable-next-line
+		if (this.debugQuery) console.log("where + orderby + limitreq, whereData", where + orderby + limitreq, whereData);
+		let toexec = this.model.find(where + orderby + limitreq, whereData);
 		if (this.populateOnFind) {
 			Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
 				if (defField.model) toexec.populate(field);
@@ -162,28 +191,20 @@ class Controller {
 
 	async createEmpty(req) {
 		let row = this.model.createEmpty();
-		row[this._getPrimary(this.model)] = "";
+		row[this.model.primary] = "";
 		return row;
-	}
-	_getPrimary(model) {
-		let primary = null;
-		Object.entries(model.def.attributes).forEach(([field, defField], index) => {
-			if (defField.primary) primary = field;
-		});
-		return primary;
 	}
 
 	async _findone(req, morePopulate = []) {
 		let where = "",
 			whereData = [],
-			primary = this._getPrimary(this.model),
 			row,
-			id = req.params.id || req.params[primary];
+			id = req.params.id || req.params[this.model.primary];
 
 		if (id * 1 < 0) {
 			row = await this.createEmpty(req);
 		} else {
-			where += "t1." + primary + "=?";
+			where += `t1.${this.model.primary}=?`;
 			whereData.push(id);
 			let toexec = this.model.findone(where, whereData);
 			Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
@@ -223,12 +244,10 @@ class Controller {
 	}
 
 	async _create(req) {
-		let primary = this._getPrimary(this.model);
-
 		this._checkPopulateSended(req);
 		let newrow = await this.model.create(req.body).exec(true);
 		if (!newrow) return null;
-		req.params.id = newrow[primary];
+		req.params.id = newrow[this.model.primary];
 		if (this.modellogevents) await this._log(req, "create", null, newrow);
 		return await this._findone(req);
 	}
@@ -238,17 +257,15 @@ class Controller {
 			if (defField.model) {
 				if (req.body[field] && this.isObject(req.body[field])) {
 					let modelToJoin = global[defField.model];
-					let primaryToJoin = this._getPrimary(modelToJoin);
-					if (primaryToJoin) req.body[field] = req.body[field][primaryToJoin];
+					if (modelToJoin.primary) req.body[field] = req.body[field][modelToJoin.primary];
 				}
 			}
 		});
 	}
 
 	async _update(req) {
-		let primary = this._getPrimary(this.model),
-			id = req.params.id || req.params[primary],
-			where = "" + primary + "=?",
+		let id = req.params.id || req.params[this.model.primary],
+			where = `${this.model.primary}=?`,
 			whereData = [id],
 			oldrow,
 			newrow;
@@ -256,7 +273,7 @@ class Controller {
 			oldrow = await this.model.findone(where, whereData).exec();
 			if (!oldrow) return null;
 		}
-		delete req.body[primary];
+		delete req.body[this.model.primary];
 
 		this._checkPopulateSended(req);
 		let row = await this.model.update(where, whereData, req.body).exec();
@@ -270,16 +287,14 @@ class Controller {
 	async _destroy(req, updateDeleteField = false) {
 		let where = "",
 			whereData = [],
-			primary = this._getPrimary(this.model),
 			oldrow,
-			log = this.modellogevents,
-			id = req.params.id || req.params[primary];
-		where = primary + "=?";
+			id = req.params.id || req.params[this.model.primary];
+		where = `${this.model.primary}=?`;
 		whereData = id;
 
 		oldrow = await this.model.findone(where, whereData).exec();
 		if (!oldrow) return null;
-		if (log) await this._log(req, "destroy", oldrow, null);
+		if (this.modellogevents) await this._log(req, "destroy", oldrow, null);
 
 		if (updateDeleteField === false) {
 			await this.model.destroy(where, whereData).exec();
@@ -291,8 +306,7 @@ class Controller {
 		return oldrow;
 	}
 	async _log(req, modelEvent, oldrow, newrow) {
-		let primary = this._getPrimary(this.model),
-			id = req.params.id || req.params[primary];
+		let id = req.params.id || req.params[this.model.primary];
 		let c = "";
 		if (modelEvent == "create") c = newrow;
 		else if (modelEvent == "destroy") c = oldrow;
@@ -328,4 +342,4 @@ async function loadControllers() {
 	}
 }
 
-export { Controller, Crud, loadControllers };
+export { Controller, loadControllers };
