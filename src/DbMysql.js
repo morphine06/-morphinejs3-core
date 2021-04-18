@@ -1,16 +1,17 @@
-var path = require("path");
-var mysql = require("mysql2/promise");
+const path = require("path");
+const mysql = require("mysql2/promise");
+const chalk = require("chalk");
 
-var globule = require("globule");
-var DbTable = require("./DbTable");
+const globule = require("globule");
+const DbTable = require("./DbTable");
 
-var DbMysql = new (class {
+const DbMysql = new (class {
 	constructor() {
 		this.models = {};
 	}
 	async init(config) {
 		this.config = config;
-		var pool = mysql.createPool(this.config.connection);
+		const pool = mysql.createPool(this.config.connection);
 		this.connection = {
 			pool: pool,
 			query: async function (sql, sqlData = [], catchError = false) {
@@ -23,13 +24,13 @@ var DbMysql = new (class {
 				}
 				try {
 					let results = await connection.query(sql, sqlData);
-					// console.log("sql, sqlData", sql, sqlData, results);
+					// console.log("sql, sqlData", sql, sqlData); //, results
 					connection.release();
 					return results[0];
 				} catch (error) {
 					connection.release();
 					if (catchError) throw error;
-					console.warn("sql-error", error, sql, sqlData);
+					console.warn(chalk.red("sql-error"), error, sql, sqlData);
 					return null;
 					// } finally {
 					// 	connection.release(); // always put connection back in pool after last query
@@ -42,7 +43,7 @@ var DbMysql = new (class {
 			let file = files[iFile];
 			file = file.substring(0, file.length - 3);
 			// console.log("file", file);
-			var def = require(file);
+			let def = require(file);
 			if (def.useUpdatedAt === undefined) def.useUpdatedAt = true;
 			if (def.useCreatedAt === undefined) def.useCreatedAt = true;
 			if (def.useCreatedAt) def.attributes["createdAt"] = { type: "datetime", index: true };
@@ -120,7 +121,7 @@ var DbMysql = new (class {
 		for (const [fieldName, field] of Object.entries(def.attributes)) {
 			// console.log("field, fieldName", field, fieldName);
 			if (field.model) {
-				var f = this._getJoinedModel(field);
+				let f = this._getJoinedModel(field);
 				if (f) what.push(fieldName + " " + this._ormTypeToDatabaseType(f[0], f[1]));
 			} else {
 				what.push(
@@ -164,7 +165,7 @@ var DbMysql = new (class {
 
 			if (type2 === null) {
 				if (field.model) {
-					var f = this._getJoinedModel(field);
+					let f = this._getJoinedModel(field);
 					field.type = f[0];
 					field.length = f[1];
 				}

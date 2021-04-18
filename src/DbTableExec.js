@@ -1,15 +1,14 @@
-var _ = require("lodash");
-var dayjs = require("dayjs");
-
+const dayjs = require("dayjs");
+const chalk = require("chalk");
 module.exports = class DbTableExec {
 	constructor(table) {
-		this.DbMysql = table.DbMysql;
 		this.table = table;
+		this.DbMysql = table.DbMysql;
+		this.connection = table.connection;
 		this.def = table.def;
 		this.modelname = this.def.modelname;
 		this.selected = [];
 		this.command = "SELECT";
-		this.connection = table.connection;
 		this.returnCompleteRow = true;
 		this.primary = "id";
 		this.primaryType = "integer";
@@ -24,6 +23,7 @@ module.exports = class DbTableExec {
 		this.logQuery = false;
 		this.catchErr = false;
 		this.iscount = false;
+		// this.swallowerror = false;
 		this.joinModels = [{ modelname: this.modelname, fieldJoin: null, modelnameto: null, modelalias: "t1" }];
 		for (const [fieldName, field] of Object.entries(this.def.attributes)) {
 			if (field.primary) {
@@ -83,6 +83,18 @@ module.exports = class DbTableExec {
 		// console.log("where,data", where, data);
 		return this;
 	}
+	replace(data) {
+		// this.original_where = this.cloneDeep(where);
+		// this.original_whereData = this.cloneDeep(this.whereData);
+		this.whereData = [];
+
+		this.onlyOne = false;
+		this.command = "REPLACE";
+		this.where = "";
+		this.data = data;
+		// console.log("where,data", where, data);
+		return this;
+	}
 	updateone(where, whereData, data) {
 		this.update(where, whereData, data);
 		this.onlyOne = true;
@@ -102,14 +114,25 @@ module.exports = class DbTableExec {
 		return this;
 	}
 	_searchModelFromFieldName(fieldJoin, fromModelName) {
-		var f = null;
+		// console.log("fieldJoin, fromModelName", fieldJoin, fromModelName);
+		let f = null,
+			n = "",
+			isNotAlias = false;
 		for (const [fieldName, field] of Object.entries(this.DbMysql.models[fromModelName].def.attributes)) {
-			if (fieldName == fieldJoin && field.model) f = field;
+			if (field.model && (field.alias == fieldJoin || fieldName == fieldJoin)) {
+				f = field;
+				n = fieldName;
+				if (fieldName == fieldJoin) isNotAlias = true;
+			}
 		}
-		return f;
+		return { modeltolink: f, modeltolinkname: n, isNotAlias };
 	}
 	log() {
 		this.logQuery = true;
+		return this;
+	}
+	swallowError() {
+		this.catchErr = false;
 		return this;
 	}
 	catchError() {
@@ -120,37 +143,65 @@ module.exports = class DbTableExec {
 		this.returnCompleteRow = returnCompleteRow;
 		return this;
 	}
-	populate(fieldJoin, fieldJoinName) {
-		// console.log("this.table", this.table);
+	populateAll(exclude = []) {
+		let me = this;
+		function populateThis(table, origins) {
+			// eslint-disable-next-line
+			for (const [field, defField] of Object.entries(table.def.attributes)) {
+				if (defField.model) {
+					if (exclude.indexOf(origins + defField.alias) >= 0) continue;
+					me.populate(origins + defField.alias);
+					populateThis(me.DbMysql.models[defField.model], origins + defField.alias + ".");
+				}
+			}
+		}
+		populateThis(this.table, "");
+		//origins=[]
+		return this;
+	}
+	populate(fieldJoin) {
+		// console.log("fieldJoin, fieldJoinName", fieldJoin);
 		let tabFieldsJoins = fieldJoin.split(".");
 		let previousModelName = this.modelname;
 		let previousModelAlias = "t1";
 		let tabOrigin = [];
-		tabFieldsJoins.forEach((join) => {
-			tabOrigin.push(join);
-			let modeltolink = this._searchModelFromFieldName(join, previousModelName);
+		for (let iJoin = 0; iJoin < tabFieldsJoins.length; iJoin++) {
+			let join = tabFieldsJoins[iJoin];
+
+			let { modeltolink, modeltolinkname, isNotAlias } = this._searchModelFromFieldName(join, previousModelName);
+			if (!modeltolink) {
+				console.warn(chalk.red(`The alias ${join} not found in table ${previousModelName}. Can't populate ${fieldJoin}.`));
+				break;
+			}
+			if (!modeltolink.alias) {
+				console.warn(chalk.red(`Alias name is mandatory for field ${modeltolinkname}`));
+				break;
+			}
+			if (isNotAlias) {
+				console.warn(chalk.magenta(`It's better to indicate alias name '${modeltolink.alias}' rather field name ${join} to populate`));
+				join = modeltolink.alias;
+			}
 			// console.log("modeltolink", modeltolink);
 			let modelalias = "t1";
-			if (modeltolink) {
-				if (!this.tabAlreadyIncluded[modeltolink.model + "__" + tabOrigin.join("_")]) {
-					modelalias = "t" + (this.joinModels.length + 1);
-					this.joinModels.push({
-						modelname: modeltolink.model,
-						modelalias: modelalias,
-						fieldJoin: join,
-						modelnameto: previousModelName,
-						modelaliasto: previousModelAlias,
-						origin: tabOrigin.join("."),
-						fieldJoinName: fieldJoinName || modeltolink.alias || null,
-					});
-					this.tabAlreadyIncluded[modeltolink.model + "__" + tabOrigin.join("_")] = modelalias;
-				} else {
-					modelalias = this.tabAlreadyIncluded[modeltolink.model + "__" + tabOrigin.join("_")];
-				}
+			tabOrigin.push(join);
+			if (!this.tabAlreadyIncluded[modeltolink.model + "__" + tabOrigin.join("_")]) {
+				modelalias = tabOrigin.join("__"); //+ modeltolink.alias
+				this.joinModels.push({
+					modelname: modeltolink.model,
+					modelalias: modelalias,
+					fieldJoin: modeltolinkname,
+					modelnameto: previousModelName,
+					modelaliasto: previousModelAlias,
+					origin: tabOrigin.join("."),
+					fieldJoinName: modeltolink.alias || null,
+				});
+				this.tabAlreadyIncluded[modeltolink.model + "__" + tabOrigin.join("_")] = modelalias;
+			} else {
+				modelalias = this.tabAlreadyIncluded[modeltolink.model + "__" + tabOrigin.join("_")];
 			}
 			previousModelName = modeltolink.model;
 			previousModelAlias = modelalias;
-		});
+		}
 		return this;
 	}
 	orderBy(order) {
@@ -166,6 +217,7 @@ module.exports = class DbTableExec {
 		return this;
 	}
 	_createWhere(fromUpdate) {
+		// console.log("this.joinModels", this.joinModels);
 		let where = "";
 		if (!this.where) {
 			where = "1=1";
@@ -173,19 +225,15 @@ module.exports = class DbTableExec {
 			where += this.primary + "=?";
 			this.whereData.push(this.where);
 		} else if (typeof this.where === "string") {
-			var isKey = true;
-			if (this.where.indexOf(" ") !== -1) isKey = false;
-			if (this.where.indexOf(">") !== -1) isKey = false;
-			if (this.where.indexOf("<") !== -1) isKey = false;
-			if (this.where.indexOf("=") !== -1) isKey = false;
-			if (isKey) {
-				where += this.primary + "=?";
-				this.whereData.push(this.where);
-			} else {
-				where = this.where;
-				if (fromUpdate) {
-					this.whereData = this.whereData.concat(this.original_whereData);
+			where = this.where;
+			this.joinModels.forEach((model, num) => {
+				if (model.origin) {
+					let reg = new RegExp(model.origin, "gi");
+					where = where.replace(reg, model.modelalias);
 				}
+			});
+			if (fromUpdate) {
+				this.whereData = this.whereData.concat(this.original_whereData);
 			}
 		} else {
 			where += "1";
@@ -198,7 +246,7 @@ module.exports = class DbTableExec {
 		return where;
 	}
 	_createSelect() {
-		var tabSelect = [];
+		let tabSelect = [];
 		this.joinModels.forEach((model, num) => {
 			for (const [fieldName] of Object.entries(this.DbMysql.models[model.modelname].def.attributes)) {
 				let as = "";
@@ -286,6 +334,17 @@ module.exports = class DbTableExec {
 		let query = "UPDATE " + this.def.tableName + " SET " + vals.join(", ") + " WHERE " + this._createWhere(true);
 		return query;
 	}
+	// _createReplaceQuery() {
+	// 	let vals = [];
+	// 	for (const [key, val] of Object.entries(this.data)) {
+	// 		if (this.def.attributes[key]) {
+	// 			vals.push(key + "=?");
+	// 			this.whereData.push(val);
+	// 		}
+	// 	}
+	// 	let query = "UPDATE " + this.def.tableName + " SET " + vals.join(", ") + " WHERE " + this._createWhere(true);
+	// 	return query;
+	// }
 	_createDestroyQuery() {
 		let query = "DELETE FROM " + this.def.tableName + " WHERE " + this._createWhere();
 		return query;
@@ -294,25 +353,23 @@ module.exports = class DbTableExec {
 		for (const [fieldName, field] of Object.entries(this.def.attributes)) {
 			// console.log("fieldName,field.type",fieldName,field.type);
 			if (this.data[fieldName] === undefined) return;
-			let key = fieldName;
-			let val = this.data[key];
-			if (field.type == "json" && _.isObject(val)) {
+			if (field.type == "json" && typeof this.data[fieldName] == "object") {
 				try {
-					this.data[key] = JSON.stringify(this.data[key]);
+					this.data[fieldName] = JSON.stringify(this.data[fieldName]);
 				} catch (e) {
 					console.warn("json stringify error", e);
-					this.data[key] = "";
+					this.data[fieldName] = "";
 				}
 			}
-			if (field.type == "json" && !_.isObject(val)) {
+			if (field.type == "json" && typeof this.data[fieldName] !== "object") {
 				try {
-					this.data[key] = JSON.parse(this.data[key]);
+					this.data[fieldName] = JSON.parse(this.data[fieldName]);
 				} catch (e) {}
 				try {
-					this.data[key] = JSON.stringify(this.data[key]);
+					this.data[fieldName] = JSON.stringify(this.data[fieldName]);
 				} catch (e) {
 					console.warn("json stringify error", e);
-					this.data[key] = "";
+					this.data[fieldName] = "";
 				}
 			}
 			if (field.type == "boolean") {
@@ -350,7 +407,7 @@ module.exports = class DbTableExec {
 						if (row[fieldName]) row[fieldName] = JSON.parse(row[fieldName]);
 						else row[fieldName] = null;
 					} catch (e) {
-						console.warn(`json parse error - fieldName:"${fieldName}" - value:"${row[fieldName]}"`);
+						console.warn(chalk.red(`json parse error - fieldName:"${fieldName}" - value:"${row[fieldName]}"`));
 						row[fieldName] = null;
 					}
 				}
@@ -360,6 +417,7 @@ module.exports = class DbTableExec {
 				}
 			}
 			this.joinModels.forEach((model, num) => {
+				// console.log("model", model);
 				if (model.modelnameto) {
 					let obj = {};
 
@@ -372,7 +430,7 @@ module.exports = class DbTableExec {
 									if (row[f]) row[f] = JSON.parse(row[f]);
 									else row[f] = null;
 								} catch (e) {
-									console.warn("json parse error", e, f, row[f]);
+									console.warn(chalk.red("json parse error"), e, f, row[f]);
 									row[f] = null;
 								}
 							}
@@ -380,7 +438,8 @@ module.exports = class DbTableExec {
 							delete row[f];
 						}
 					}
-					if (model.fieldJoinName) {
+					// console.log("model.fieldJoinName", model.fieldJoinName);
+					if (model.fieldJoinName && model.modelaliasto == "t1") {
 						row[model.fieldJoinName] = obj;
 					} else {
 						if (!obj[this.DbMysql.models[model.modelname].primary]) {
@@ -388,6 +447,7 @@ module.exports = class DbTableExec {
 						}
 						let tabFieldsJoins = model.origin.split(".");
 						let previousObj = row;
+						// console.log("previousObj", previousObj);
 						let lastO = null;
 						tabFieldsJoins.forEach((o, index) => {
 							lastO = o;
@@ -432,7 +492,27 @@ module.exports = class DbTableExec {
 		else if (fn2) await fn();
 	}
 	async exec(returnCompleteRow = true) {
-		if (!this.returnCompleteRow) returnCompleteRow = false;
+		if (this.command == "REPLACE") {
+			let w = "0",
+				wData = [];
+			if (this.data[this.primary]) {
+				w = this.primary + "=?";
+				wData.push(this.data[this.primary]);
+			}
+			let query = "SELECT " + this.primary + " FROM " + this.def.tableName + " WHERE " + w;
+			rows = await this.connection.query(query, wData, this.catchErr);
+			if (rows.length) {
+				this.command = "UPDATE";
+				this.where = this.primary + "=?";
+				this.whereData = [];
+				this.original_where = this.primary + "=?";
+				this.original_whereData = [rows[0][this.primary]];
+			} else {
+				this.command = "INSERT";
+				delete this.data[this.primary];
+			}
+		}
+
 		this._beforeQuery();
 		let query;
 		switch (this.command) {

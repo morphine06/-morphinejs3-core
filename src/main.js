@@ -1,3 +1,6 @@
+const chalk = require("chalk");
+const http = require("http");
+
 import { App } from "./App";
 import { Services, Service, loadServices } from "./Services";
 import { Config } from "./Config";
@@ -20,7 +23,16 @@ const MorphineJs = class {
 	}
 	async initExpress() {}
 	async initMiddlewares() {}
-	async initHttpServer() {}
+	async initHttpServer() {
+		let httpserver = http.createServer(App);
+		await new Promise((accept, reject) => {
+			httpserver.listen(Config.app.port, () => {
+				accept();
+			});
+		});
+		console.warn(chalk.green(`Listening on ${Config.app.host} ! - ${Config.app.mode}`));
+		return httpserver;
+	}
 	initResSendData() {
 		return function (req, res, next) {
 			if (!Services.ErrorCodes) return next();

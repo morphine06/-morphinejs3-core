@@ -1,3 +1,4 @@
+import chalk from "chalk";
 import { Services } from "./Services";
 
 function transformController(url, original) {
@@ -11,7 +12,7 @@ function transformController(url, original) {
 			if (Services.Middlewares.catchControllerErrors) {
 				Services.Middlewares.catchControllerErrors(args[0], args[1], e);
 			} else {
-				console.warn(`Error in controller : ${e.stack}\nNot restarted.`);
+				console.warn(chalk.red(`Error in controller : ${e}\nNot restarted.`));
 				args[1].send({ error: `Error in controller` });
 			}
 		}

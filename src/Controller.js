@@ -106,28 +106,28 @@ class Controller {
 			whereData = [];
 		function findCreateWhereForField(tx, field, value) {
 			if (value.indexOf("contains:") === 0) {
-				where += " && " + tx + "." + field + " like ?";
+				where += ` && ${tx}.${field} like ?`;
 				whereData.push("%" + value.substring(9) + "%");
 			} else if (value.indexOf("startwith:") === 0) {
-				where += " && " + tx + "." + field + " like ?";
+				where += ` && ${tx}.${field} like ?`;
 				whereData.push(value.substring(10) + "%");
 			} else if (value.indexOf("endwith:") === 0) {
-				where += " && " + tx + "." + field + " like ?";
+				where += ` && ${tx}.${field} like ?`;
 				whereData.push("%" + value.substring(8));
 			} else if (value.indexOf(">=") === 0) {
-				where += " && " + tx + "." + field + " >= ?";
+				where += ` && ${tx}.${field} >= ?`;
 				whereData.push(value.substring(2));
 			} else if (value.indexOf(">") === 0) {
-				where += " && " + tx + "." + field + " > ?";
+				where += ` && ${tx}.${field} > ?`;
 				whereData.push(value.substring(1));
 			} else if (value.indexOf("<=") === 0) {
-				where += " && " + tx + "." + field + " <= ?";
+				where += ` && ${tx}.${field} <= ?`;
 				whereData.push(value.substring(2));
 			} else if (value.indexOf("<") === 0) {
-				where += " && " + tx + "." + field + " < ?";
+				where += ` && ${tx}.${field} < ?`;
 				whereData.push(value.substring(1));
 			} else {
-				where += " && " + tx + "." + field + "=?";
+				where += ` && ${tx}.${field} = ?`;
 				whereData.push(req.query[field]);
 			}
 		}
@@ -150,7 +150,7 @@ class Controller {
 	// async findOrderBy(fn) {
 	// 	this._findOrderBy = fn;
 	// }
-	async findExec(what = {}) {
+	async findExec(what = {}, morePopulate = []) {
 		let req = this.req;
 		let { where, whereData } = await this.findCreateWhere(req);
 		if (what.where) {
@@ -172,7 +172,10 @@ class Controller {
 		let toexec = this.model.find(where + orderby + limitreq, whereData);
 		if (this.populateOnFind) {
 			Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
-				if (defField.model) toexec.populate(field);
+				if (defField.model) toexec.populate(defField.alias);
+			});
+			morePopulate.forEach((field) => {
+				toexec.populate(field);
 			});
 		}
 		let rows = await toexec.exec();
@@ -331,7 +334,7 @@ class Controller {
 }
 
 async function loadControllers() {
-	let controllerFiles = globule.find(process.cwd() + "/src/**/*.controller.js");
+	let controllerFiles = globule.find(`${process.cwd()}/src/**/*.controller.js`);
 	for (let i = 0; i < controllerFiles.length; i++) {
 		const controllerFile = controllerFiles[i];
 		let obj = await import(controllerFile);
