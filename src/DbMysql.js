@@ -37,32 +37,6 @@ const DbMysql = new (class {
 				}
 			},
 		};
-
-		let files = globule.find(process.cwd() + "/src/**/*.model.js");
-		for (let iFile = 0; iFile < files.length; iFile++) {
-			let file = files[iFile];
-			file = file.substring(0, file.length - 3);
-			// console.log("file", file);
-			let def = require(file);
-			if (def.useUpdatedAt === undefined) def.useUpdatedAt = true;
-			if (def.useCreatedAt === undefined) def.useCreatedAt = true;
-			if (def.useCreatedAt) def.attributes["createdAt"] = { type: "datetime", index: true };
-			if (def.useUpdatedAt) def.attributes["updatedAt"] = { type: "datetime", index: true };
-			def.modelname = path.basename(file);
-			def.modelname = def.modelname.substring(0, def.modelname.length - 6);
-			// console.log("def.modelname", def.modelname);
-			def.debug = this.config.debug;
-			// global[def.modelname] =
-			this.models[def.modelname] = new DbTable(def, this);
-		}
-
-		for (const model of Object.values(this.models)) {
-			await this.synchronize(model.def);
-		}
-
-		for (const model of Object.values(this.models)) {
-			await this.constraints(model);
-		}
 	}
 
 	async constraints(model) {
@@ -103,12 +77,14 @@ const DbMysql = new (class {
 					console.warn(q);
 					await this.connection.query(q);
 				}
-				if (tocreate) {
+				if (tocreate && (link.val.onDelete || link.val.onUpdate)) {
 					let q = `ALTER TABLE \`${model.def.tableName}\` ADD CONSTRAINT \`${model.def.tableName}_${
 						this.models[link.val.model].def.tableName
 					}_${link.key}_fk\` FOREIGN KEY (\`${link.key}\`) REFERENCES \`${this.models[link.val.model].def.tableName}\`(\`${
 						this.models[link.val.model].primary
-					}\`) ON DELETE ${link.val.onDelete} ON UPDATE ${link.val.onUpdate}`;
+					}\`)`;
+					if (link.val.onDelete) q += ` ON DELETE ${link.val.onDelete}`;
+					if (link.val.onUpdate) q += ` ON UPDATE ${link.val.onUpdate}`;
 					console.warn(q);
 					await this.connection.query(q);
 				}
@@ -119,7 +95,6 @@ const DbMysql = new (class {
 	async createTable(def) {
 		let what = [];
 		for (const [fieldName, field] of Object.entries(def.attributes)) {
-			// console.log("field, fieldName", field, fieldName);
 			if (field.model) {
 				let f = this._getJoinedModel(field);
 				if (f) what.push(fieldName + " " + this._ormTypeToDatabaseType(f[0], f[1]));
@@ -130,7 +105,7 @@ const DbMysql = new (class {
 						this._ormTypeToDatabaseType(field.type, field.length) +
 						this._getNotnull(field) +
 						this._getIndex(field) +
-						this._getDefault(field)
+						this._getDefault(field, fieldName)
 				);
 			}
 		}
@@ -178,7 +153,7 @@ const DbMysql = new (class {
 					this._ormTypeToDatabaseType(field.type, field.length) +
 					this._getNotnull(field) +
 					this._getIndex(field) +
-					this._getDefault(field);
+					this._getDefault(field, fieldName);
 				console.warn("q", q);
 				await this.connection.query(q);
 			} else if (
@@ -196,7 +171,7 @@ const DbMysql = new (class {
 					" " +
 					this._ormTypeToDatabaseType(field.type, field.length) +
 					this._getNotnull(field) +
-					this._getDefault(field);
+					this._getDefault(field, fieldName);
 				console.warn("q", q);
 				await this.connection.query(q);
 			}
@@ -215,7 +190,8 @@ const DbMysql = new (class {
 
 			let rows2 = await this.connection.query("SHOW INDEX FROM " + def.tableName + "");
 			for (const [fieldName, field] of Object.entries(def.attributes)) {
-				let createIndex = false;
+				let createIndex = false,
+					createUnique = false;
 				if (field.model || field.index) {
 					createIndex = true;
 					for (let iRows = 0; iRows < rows2.length; iRows++) {
@@ -223,11 +199,25 @@ const DbMysql = new (class {
 						if (row2.Column_name == fieldName) createIndex = false;
 					}
 				}
+				// if (field.unique) {
+				// 	createUnique = true;
+				// 	for (let iRows = 0; iRows < rows2.length; iRows++) {
+				// 		const row2 = rows2[iRows];
+				// 		if (row2.Column_name == fieldName) createIndex = false;
+				// 	}
+				// }
+
 				if (createIndex) {
 					let q = "ALTER TABLE " + def.tableName + " ADD INDEX (" + fieldName + ")";
 					console.warn("q", q);
 					await this.connection.query(q);
 				}
+				// if (createUnique) {
+				// 	let q = "ALTER TABLE " + def.tableName + " ADD UNIQUE (" + fieldName + ")";
+				// 	console.warn("q", q);
+				// 	await this.connection.query(q);
+
+				// }
 			}
 		}
 	}
@@ -350,12 +340,24 @@ const DbMysql = new (class {
 		else res = " NULL";
 		return res;
 	}
-	_getDefault(field) {
+	_getDefault(field, fieldName = "") {
 		let defaultsTo = "";
 		if (typeof field.defaultsTo !== "undefined") {
 			defaultsTo = ' DEFAULT "' + field.defaultsTo + '"';
 			if (field.type == "boolean" && (field.defaultsTo === true || field.defaultsTo === "true")) defaultsTo = " DEFAULT 1";
 			if (field.type == "boolean" && (field.defaultsTo === false || field.defaultsTo === "false")) defaultsTo = " DEFAULT 0";
+			if (field.type == "json") {
+				try {
+					if (typeof field.defaultsTo == "object") {
+						defaultsTo = ' DEFAULT "' + JSON.stringify(field.defaultsTo).replace(/"/g, '\\"') + '"';
+					} else {
+						defaultsTo = ' DEFAULT "' + JSON.stringify(JSON.parse(field.defaultsTo)).replace(/"/g, '\\"') + '"';
+					}
+				} catch (error) {
+					defaultsTo = "";
+					console.warn(chalk.red(`defaultsTo '${fieldName}' must be a valid Json object`));
+				}
+			}
 		}
 		return defaultsTo;
 	}
@@ -381,6 +383,35 @@ function Model(models = []) {
 	};
 }
 
+async function loadModels() {
+	let files = globule.find(process.cwd() + "/src/**/*.model.js");
+	console.warn(chalk.yellow(`@Info - Models availables :`));
+	for (let iFile = 0; iFile < files.length; iFile++) {
+		let file = files[iFile];
+		file = file.substring(0, file.length - 3);
+		let def = require(file);
+		if (def.useUpdatedAt === undefined) def.useUpdatedAt = true;
+		if (def.useCreatedAt === undefined) def.useCreatedAt = true;
+		if (def.useCreatedAt) def.attributes["createdAt"] = { type: "datetime", index: true };
+		if (def.useUpdatedAt) def.attributes["updatedAt"] = { type: "datetime", index: true };
+		def.modelname = path.basename(file);
+		def.modelname = def.modelname.substring(0, def.modelname.length - 6);
+		def.debug = DbMysql.config.debug;
+		// global[def.modelname] =
+		def.tableName = def.modelname;
+		DbMysql.models[def.modelname] = new DbTable(def, DbMysql);
+		console.warn(`- ${def.modelname}`);
+	}
+
+	for (const model of Object.values(DbMysql.models)) {
+		await DbMysql.synchronize(model.def);
+	}
+
+	for (const model of Object.values(DbMysql.models)) {
+		await DbMysql.constraints(model);
+	}
+}
+
 const Migration = new (class {
 	dropTable(tableName) {}
 	dropField(tableName, fieldName) {}
@@ -389,4 +420,4 @@ const Migration = new (class {
 })();
 
 const Models = DbMysql.models;
-export { DbMysql, Model, Models, Migration };
+export { DbMysql, Model, Models, Migration, loadModels };

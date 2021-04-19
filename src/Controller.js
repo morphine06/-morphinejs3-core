@@ -1,5 +1,6 @@
 import globule from "globule";
 import dayjs from "dayjs";
+import chalk from "chalk";
 
 import { App } from "./App";
 import { Services } from "./Services";
@@ -17,8 +18,7 @@ class Controller {
 	}
 	describeRoutes() {
 		this._routes.forEach((route) => {
-			// eslint-disable-next-line
-			console.log(`${route.method.toUpperCase()} ${route.url} > ${route.controllerName} > ${route.name}`);
+			console.warn(`- ${route.method.toUpperCase()} ${route.url} > ${route.controllerName} > ${route.name}()`);
 		});
 	}
 	_addRoutes() {
@@ -30,7 +30,7 @@ class Controller {
 					if (diff > 1000) diff = diff / 1000 + "s";
 					else diff += "ms";
 					// eslint-disable-next-line
-					console.log(`${dayjs().format("YYYY-MM-DD HH:mm:ss")} - GET ${route.url} - ${diff}`);
+					console.warn(`${dayjs().format("YYYY-MM-DD HH:mm:ss")} - GET ${route.url} - ${diff}`);
 				});
 				next();
 			});
@@ -150,7 +150,7 @@ class Controller {
 	// async findOrderBy(fn) {
 	// 	this._findOrderBy = fn;
 	// }
-	async findExec(what = {}, morePopulate = []) {
+	async findExec(what = {}) {
 		let req = this.req;
 		let { where, whereData } = await this.findCreateWhere(req);
 		if (what.where) {
@@ -168,16 +168,24 @@ class Controller {
 		let orderby = await this.findCreateOrderBy(req);
 		if (what.orderBy) orderby = await what.orderBy(orderby);
 		// eslint-disable-next-line
-		if (this.debugQuery) console.log("where + orderby + limitreq, whereData", where + orderby + limitreq, whereData);
 		let toexec = this.model.find(where + orderby + limitreq, whereData);
-		if (this.populateOnFind) {
-			Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
-				if (defField.model) toexec.populate(defField.alias);
-			});
-			morePopulate.forEach((field) => {
+		if (this.debugQuery) {
+			console.warn("where + orderby + limitreq, whereData", where + orderby + limitreq, whereData);
+			toexec.debug();
+		}
+		// if (this.populateOnFind) {
+		// Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
+		// 	if (defField.model) toexec.populate(defField.alias);
+		// });
+		// morePopulate.forEach((field) => {
+		// 	toexec.populate(field);
+		// });
+		if (what.populate) {
+			what.populate.forEach((field) => {
 				toexec.populate(field);
 			});
-		}
+		} else toexec.populateAll();
+		// }
 		let rows = await toexec.exec();
 		let total = rows.length;
 		if (limit) {
@@ -210,13 +218,13 @@ class Controller {
 			where += `t1.${this.model.primary}=?`;
 			whereData.push(id);
 			let toexec = this.model.findone(where, whereData);
-			Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
-				if (defField.model) toexec.populate(field);
-			});
-			morePopulate.forEach((field) => {
-				toexec.populate(field);
-			});
-			row = await toexec.exec();
+			// Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
+			// 	if (defField.model) toexec.populate(field);
+			// });
+			// morePopulate.forEach((field) => {
+			// 	toexec.populate(field);
+			// });
+			row = await toexec.populateAll().exec();
 		}
 		return row;
 	}
@@ -251,7 +259,7 @@ class Controller {
 		let newrow = await this.model.create(req.body).exec(true);
 		if (!newrow) return null;
 		req.params.id = newrow[this.model.primary];
-		if (this.modellogevents) await this._log(req, "create", null, newrow);
+		// if (this.modellogevents) await this._log(req, "create", null, newrow);
 		return await this._findone(req);
 	}
 
@@ -270,8 +278,7 @@ class Controller {
 		let id = req.params.id || req.params[this.model.primary],
 			where = `${this.model.primary}=?`,
 			whereData = [id],
-			oldrow,
-			newrow;
+			oldrow;
 		if (this.modellogevents) {
 			oldrow = await this.model.findone(where, whereData).exec();
 			if (!oldrow) return null;
@@ -281,8 +288,8 @@ class Controller {
 		this._checkPopulateSended(req);
 		let row = await this.model.update(where, whereData, req.body).exec();
 		if (!row) return null;
-		if (row.length) newrow = row[0];
-		if (this.modellogevents) await this._log(req, "update", oldrow, newrow);
+		// if (row.length) newrow = row[0];
+		// if (this.modellogevents) await this._log(req, "update", oldrow, newrow);
 
 		return await this._findone(req);
 	}
@@ -297,7 +304,7 @@ class Controller {
 
 		oldrow = await this.model.findone(where, whereData).exec();
 		if (!oldrow) return null;
-		if (this.modellogevents) await this._log(req, "destroy", oldrow, null);
+		// if (this.modellogevents) await this._log(req, "destroy", oldrow, null);
 
 		if (updateDeleteField === false) {
 			await this.model.destroy(where, whereData).exec();
@@ -308,20 +315,20 @@ class Controller {
 		}
 		return oldrow;
 	}
-	async _log(req, modelEvent, oldrow, newrow) {
-		let id = req.params.id || req.params[this.model.primary];
-		let c = "";
-		if (modelEvent == "create") c = newrow;
-		else if (modelEvent == "destroy") c = oldrow;
-		else if (modelEvent == "update") c = this._compareData(oldrow, newrow);
-		await Logs.create({
-			us_id_user: req.user ? req.user.us_id : 0,
-			lg_model_event: modelEvent,
-			lg_model_name: this.modelname,
-			lg_model_id: id,
-			lg_data: c,
-		}).exec();
-	}
+	// async _log(req, modelEvent, oldrow, newrow) {
+	// 	let id = req.params.id || req.params[this.model.primary];
+	// 	let c = "";
+	// 	if (modelEvent == "create") c = newrow;
+	// 	else if (modelEvent == "destroy") c = oldrow;
+	// 	else if (modelEvent == "update") c = this._compareData(oldrow, newrow);
+	// 	await Logs.create({
+	// 		us_id_user: req.user ? req.user.us_id : 0,
+	// 		lg_model_event: modelEvent,
+	// 		lg_model_name: this.modelname,
+	// 		lg_model_id: id,
+	// 		lg_data: c,
+	// 	}).exec();
+	// }
 
 	async before(req, res) {}
 	async policy(req, res) {
@@ -335,6 +342,7 @@ class Controller {
 
 async function loadControllers() {
 	let controllerFiles = globule.find(`${process.cwd()}/src/**/*.controller.js`);
+	console.warn(chalk.yellow(`@Info - Routes list :`));
 	for (let i = 0; i < controllerFiles.length; i++) {
 		const controllerFile = controllerFiles[i];
 		let obj = await import(controllerFile);

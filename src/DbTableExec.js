@@ -80,19 +80,15 @@ module.exports = class DbTableExec {
 		this.command = "UPDATE";
 		this.where = where;
 		this.data = data;
-		// console.log("where,data", where, data);
 		return this;
 	}
 	replace(data) {
-		// this.original_where = this.cloneDeep(where);
-		// this.original_whereData = this.cloneDeep(this.whereData);
 		this.whereData = [];
 
 		this.onlyOne = false;
 		this.command = "REPLACE";
 		this.where = "";
 		this.data = data;
-		// console.log("where,data", where, data);
 		return this;
 	}
 	updateone(where, whereData, data) {
@@ -114,7 +110,6 @@ module.exports = class DbTableExec {
 		return this;
 	}
 	_searchModelFromFieldName(fieldJoin, fromModelName) {
-		// console.log("fieldJoin, fromModelName", fieldJoin, fromModelName);
 		let f = null,
 			n = "",
 			isNotAlias = false;
@@ -128,6 +123,10 @@ module.exports = class DbTableExec {
 		return { modeltolink: f, modeltolinkname: n, isNotAlias };
 	}
 	log() {
+		this.logQuery = true;
+		return this;
+	}
+	debug() {
 		this.logQuery = true;
 		return this;
 	}
@@ -160,7 +159,6 @@ module.exports = class DbTableExec {
 		return this;
 	}
 	populate(fieldJoin) {
-		// console.log("fieldJoin, fieldJoinName", fieldJoin);
 		let tabFieldsJoins = fieldJoin.split(".");
 		let previousModelName = this.modelname;
 		let previousModelAlias = "t1";
@@ -181,7 +179,6 @@ module.exports = class DbTableExec {
 				console.warn(chalk.magenta(`It's better to indicate alias name '${modeltolink.alias}' rather field name ${join} to populate`));
 				join = modeltolink.alias;
 			}
-			// console.log("modeltolink", modeltolink);
 			let modelalias = "t1";
 			tabOrigin.push(join);
 			if (!this.tabAlreadyIncluded[modeltolink.model + "__" + tabOrigin.join("_")]) {
@@ -217,7 +214,6 @@ module.exports = class DbTableExec {
 		return this;
 	}
 	_createWhere(fromUpdate) {
-		// console.log("this.joinModels", this.joinModels);
 		let where = "";
 		if (!this.where) {
 			where = "1=1";
@@ -351,7 +347,6 @@ module.exports = class DbTableExec {
 	}
 	_preTreatment() {
 		for (const [fieldName, field] of Object.entries(this.def.attributes)) {
-			// console.log("fieldName,field.type",fieldName,field.type);
 			if (this.data[fieldName] === undefined) return;
 			if (field.type == "json" && typeof this.data[fieldName] == "object") {
 				try {
@@ -417,7 +412,6 @@ module.exports = class DbTableExec {
 				}
 			}
 			this.joinModels.forEach((model, num) => {
-				// console.log("model", model);
 				if (model.modelnameto) {
 					let obj = {};
 
@@ -438,7 +432,6 @@ module.exports = class DbTableExec {
 							delete row[f];
 						}
 					}
-					// console.log("model.fieldJoinName", model.fieldJoinName);
 					if (model.fieldJoinName && model.modelaliasto == "t1") {
 						row[model.fieldJoinName] = obj;
 					} else {
@@ -447,7 +440,6 @@ module.exports = class DbTableExec {
 						}
 						let tabFieldsJoins = model.origin.split(".");
 						let previousObj = row;
-						// console.log("previousObj", previousObj);
 						let lastO = null;
 						tabFieldsJoins.forEach((o, index) => {
 							lastO = o;
@@ -534,7 +526,7 @@ module.exports = class DbTableExec {
 				query = this._createSelectQuery();
 		}
 
-		if (this.def.debug || this.logQuery) console.warn("query", query, this.whereData);
+		if (this.def.debug || this.logQuery) console.warn("query", chalk.yellowBright(query), chalk.cyan(this.whereData));
 		let rows;
 		try {
 			rows = await this.connection.query(query, this.whereData, this.catchErr);

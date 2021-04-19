@@ -8,7 +8,7 @@ import { Controller, loadControllers } from "./Controller";
 import { Get, Post, Put, Delete, Crud } from "./MethodDecorators";
 import { Middlewares, Middleware, loadRoutesMiddlewares } from "./Middlewares";
 
-import { DbMysql, Model, Models, Migration } from "./DbMysql";
+import { DbMysql, Model, Models, Migration, loadModels } from "./DbMysql";
 
 const rootDir = process.cwd();
 
@@ -17,6 +17,7 @@ const MorphineJs = class {
 
 	async initDb() {
 		await DbMysql.init(Config.mysql);
+		await loadModels();
 	}
 	async executeMigration() {
 		Migration.update();
@@ -87,4 +88,5 @@ export {
 	loadRoutesMiddlewares,
 	loadControllers,
 	loadServices,
+	loadModels,
 };
