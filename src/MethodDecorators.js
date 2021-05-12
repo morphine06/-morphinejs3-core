@@ -9,7 +9,7 @@ function transformController(url, original) {
 			this.res = args[1];
 			await original.apply(this, args);
 		} catch (e) {
-			if (Services.Middlewares.catchControllerErrors) {
+			if (Services.Middlewares && Services.Middlewares.catchControllerErrors) {
 				Services.Middlewares.catchControllerErrors(args[0], args[1], e);
 			} else {
 				console.warn(chalk.red(`Error in controller : ${e}\nNot restarted.`));

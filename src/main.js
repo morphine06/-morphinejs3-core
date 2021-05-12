@@ -22,6 +22,7 @@ const MorphineJs = class {
 	async executeMigration() {
 		Migration.update();
 	}
+	async initBootstrap() {}
 	async initExpress() {}
 	async initMiddlewares() {}
 	async initHttpServer() {
@@ -59,6 +60,7 @@ const MorphineJs = class {
 		await this.initDb();
 		await this.executeMigration();
 		// await loadServices();
+		await this.initBootstrap();
 		await this.initExpress();
 		await this.initMiddlewares();
 		// this.initResSendData();

@@ -1,7 +1,5 @@
 .DS_Store
 node_modules
-config/local.js
-config/sharedpreference.json
 /dist
 /uploads
 
