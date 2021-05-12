@@ -1,11 +1,13 @@
 import globule from "globule";
 import dayjs from "dayjs";
 import chalk from "chalk";
+import fs from "fs-extra";
 
 import { App } from "./App";
 import { Services } from "./Services";
 import { Middlewares } from "./Middlewares";
 
+const createCsvWriter = require("csv-writer").createObjectCsvWriter; // pour  écrite des fichiers .csv
 // function Crud(url) {
 // 	return function decorator(target) {
 // 		target.prototype.isCrud = url;
@@ -47,10 +49,47 @@ class Controller {
 		this.describeRoutes();
 	}
 
-	async find() {
+	async find(req, res) {
 		if (!this.model) return this.res.sendData("model_not_defined");
 		let { rows, total } = await this.findExec();
 		this.res.sendData({ data: rows, meta: { total: total } });
+	}
+	async exportcsv(req, res) {
+		if (!this.model) return this.res.sendData("model_not_defined");
+		let { rows, total } = await this.findExec();
+
+		let header = [];
+		Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
+			// let posUnderscore = field.indexOf("_");
+			// if (posUnderscore < 0) posUnderscore = 0;
+			// else posUnderscore = posUnderscore + 1;
+			// let title = field.substring(posUnderscore, field.length);
+			let title = field;
+			let t = field.split("_");
+			if (t.length > 1) {
+				t.shift();
+				title = t.join("_");
+			}
+			header.push({ id: field, title });
+		});
+
+		let dest = process.cwd() + "/uploads/temp/";
+		fs.ensureDirSync(dest);
+		dest += "export-" + this.model.def.modelname + ".csv";
+
+		const csvWriter = createCsvWriter({
+			path: dest,
+			header: header,
+		});
+
+		csvWriter
+			.writeRecords(rows) // returns a promise
+			.then(() => {
+				console.log("...Done");
+				let readStream = fs.createReadStream(dest);
+				readStream.pipe(res);
+			});
+		// this.res.sendData({ data: rows, meta: { total: total } });
 	}
 	async findone(req, res) {
 		if (!this.model) return res.sendData(res, "model_not_defined");

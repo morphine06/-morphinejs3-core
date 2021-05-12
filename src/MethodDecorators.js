@@ -57,6 +57,13 @@ function Crud(url, model) {
 		});
 		target.prototype._routes.push({
 			method: "get",
+			url: `${url}/exportcsv`,
+			fn: transformController(url, target.prototype.exportcsv),
+			name: "exportcsv",
+			controllerName,
+		});
+		target.prototype._routes.push({
+			method: "get",
 			url: `${url}/:id`,
 			fn: transformController(`${url}/:id`, target.prototype.findone),
 			name: "findone",
