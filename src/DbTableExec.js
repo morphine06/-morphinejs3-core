@@ -482,6 +482,7 @@ module.exports = class DbTableExec {
 		}
 		if (fn) await fn(this.data);
 		else if (fn2) await fn();
+		// console.log("this.data", this.data);
 	}
 	async exec(returnCompleteRow = true) {
 		if (this.command == "REPLACE") {
@@ -505,7 +506,7 @@ module.exports = class DbTableExec {
 			}
 		}
 
-		this._beforeQuery();
+		await this._beforeQuery();
 		let query;
 		switch (this.command) {
 			case "QUERY":

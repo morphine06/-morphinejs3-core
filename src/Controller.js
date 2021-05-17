@@ -85,7 +85,7 @@ class Controller {
 		csvWriter
 			.writeRecords(rows) // returns a promise
 			.then(() => {
-				console.log("...Done");
+				// console.log("...Done");
 				let readStream = fs.createReadStream(dest);
 				readStream.pipe(res);
 			});
