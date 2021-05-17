@@ -93,7 +93,7 @@ class Controller {
 	}
 	async findone(req, res) {
 		if (!this.model) return res.sendData(res, "model_not_defined");
-		let row = await this._findone(req);
+		let row = await this.findoneExec(req);
 		if (!row) return res.sendData("not_found");
 		res.sendData({ data: row });
 	}
@@ -245,10 +245,11 @@ class Controller {
 		return row;
 	}
 
-	async _findone(req, morePopulate = []) {
+	async findoneExec(what = {}) {
 		let where = "",
 			whereData = [],
 			row,
+			req = this.req,
 			id = req.params.id || req.params[this.model.primary];
 
 		if (id * 1 < 0) {
@@ -299,7 +300,7 @@ class Controller {
 		if (!newrow) return null;
 		req.params.id = newrow[this.model.primary];
 		// if (this.modellogevents) await this._log(req, "create", null, newrow);
-		return await this._findone(req);
+		return await this.findoneExec(req);
 	}
 
 	_checkPopulateSended(req) {
@@ -330,7 +331,7 @@ class Controller {
 		// if (row.length) newrow = row[0];
 		// if (this.modellogevents) await this._log(req, "update", oldrow, newrow);
 
-		return await this._findone(req);
+		return await this.findoneExec(req);
 	}
 
 	async _destroy(req, updateDeleteField = false) {
