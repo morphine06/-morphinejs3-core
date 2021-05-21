@@ -306,9 +306,13 @@ class Controller {
 	_checkPopulateSended(req) {
 		Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
 			if (defField.model) {
-				if (req.body[field] && this.isObject(req.body[field])) {
+				// if (req.body[field] && this.isObject(req.body[field])) {
+				// 	let modelToJoin = global[defField.model];
+				// 	if (modelToJoin.primary) req.body[field] = req.body[field][modelToJoin.primary];
+				// }
+				if (req.body[defField.alias] && this.isObject(req.body[defField.alias])) {
 					let modelToJoin = global[defField.model];
-					if (modelToJoin.primary) req.body[field] = req.body[field][modelToJoin.primary];
+					if (modelToJoin.primary) req.body[field] = req.body[defField.alias][modelToJoin.primary];
 				}
 			}
 		});

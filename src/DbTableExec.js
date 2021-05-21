@@ -348,6 +348,8 @@ module.exports = class DbTableExec {
 	_preTreatment() {
 		for (const [fieldName, field] of Object.entries(this.def.attributes)) {
 			if (!fieldName || this.data[fieldName] === undefined) continue;
+			// if (this.data[fieldName]===null)
+
 			if (field.type == "json" && typeof this.data[fieldName] == "object") {
 				try {
 					this.data[fieldName] = JSON.stringify(this.data[fieldName]);

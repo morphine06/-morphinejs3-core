@@ -97,7 +97,7 @@ const DbMysql = new (class {
 		for (const [fieldName, field] of Object.entries(def.attributes)) {
 			if (field.model) {
 				let f = this._getJoinedModel(field);
-				if (f) what.push(fieldName + " " + this._ormTypeToDatabaseType(f[0], f[1]));
+				if (f) what.push(fieldName + " " + this._ormTypeToDatabaseType(f[0], f[1]) + this._getNotnull(field));
 			} else {
 				what.push(
 					fieldName +
