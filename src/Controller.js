@@ -6,6 +6,7 @@ import fs from "fs-extra";
 import { App } from "./App";
 import { Services } from "./Services";
 import { Middlewares } from "./Middlewares";
+import { Models } from "./DbMysql";
 
 const createCsvWriter = require("csv-writer").createObjectCsvWriter; // pour  écrite des fichiers .csv
 // function Crud(url) {
@@ -311,7 +312,7 @@ class Controller {
 				// 	if (modelToJoin.primary) req.body[field] = req.body[field][modelToJoin.primary];
 				// }
 				if (req.body[defField.alias] && this.isObject(req.body[defField.alias])) {
-					let modelToJoin = global[defField.model];
+					let modelToJoin = Models[defField.model];
 					if (modelToJoin.primary) req.body[field] = req.body[defField.alias][modelToJoin.primary];
 				}
 			}
