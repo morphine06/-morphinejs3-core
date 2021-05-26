@@ -112,7 +112,8 @@ class Controller {
 	}
 	async destroy(req, res) {
 		if (!this.model) return res.sendData({ err: Services.err(501), data: null });
-		let oldrow = await this._destroy(req);
+		let oldrow = await this.destroyExec();
+		if (!oldrow) return res.sendData("not_found");
 		res.sendData({ data: oldrow });
 	}
 
@@ -339,11 +340,11 @@ class Controller {
 		return await this.findoneExec(req);
 	}
 
-	async _destroy(req, updateDeleteField = false) {
+	async destroyExec(updateDeleteField = false) {
 		let where = "",
 			whereData = [],
 			oldrow,
-			id = req.params.id || req.params[this.model.primary];
+			id = this.req.params.id || this.req.params[this.model.primary];
 		where = `${this.model.primary}=?`;
 		whereData = id;
 
