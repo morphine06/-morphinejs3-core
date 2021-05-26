@@ -141,6 +141,7 @@ class Controller {
 		if (skip > 0 && limit === 0) limit = 1844674407370955161;
 		return { limit, skip };
 	}
+	// remplacer _update et _create par updateexec()
 	async findCreateWhere(req) {
 		let where = "1=1",
 			whereData = [];
@@ -240,7 +241,7 @@ class Controller {
 		return { rows, total };
 	}
 
-	async createEmpty(req) {
+	createEmpty(req) {
 		let row = this.model.createEmpty();
 		row[this.model.primary] = "";
 		return row;
@@ -254,7 +255,7 @@ class Controller {
 			id = req.params.id || req.params[this.model.primary];
 
 		if (id * 1 < 0) {
-			row = await this.createEmpty(req);
+			row = this.createEmpty(req);
 		} else {
 			where += `t1.${this.model.primary}=?`;
 			whereData.push(id);
