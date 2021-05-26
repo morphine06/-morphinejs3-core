@@ -129,14 +129,18 @@ const DbMysql = new (class {
 			}
 			let type2 = null,
 				def2 = null;
-
+			let nullChanged = false;
 			for (let iRow = 0; iRow < describe.length; iRow++) {
 				const row = describe[iRow];
+				// console.log("row", row);
 				if (row.Field == fieldName) {
+					if (field.notnull === false && row.Null == "NO") nullChanged = true;
 					type2 = row.Type;
 					def2 = row.Default;
 				}
 			}
+			// console.log("nullChanged", nullChanged, def.tableName, fieldName);
+			// if (nullChanged)
 
 			if (type2 === null) {
 				if (field.model) {
@@ -171,6 +175,21 @@ const DbMysql = new (class {
 					" " +
 					this._ormTypeToDatabaseType(field.type, field.length) +
 					this._getNotnull(field) +
+					this._getDefault(field, fieldName);
+				console.warn("q", q);
+				await this.connection.query(q);
+			} else if (nullChanged) {
+				let q =
+					"ALTER TABLE " +
+					def.tableName +
+					" CHANGE " +
+					fieldName +
+					" " +
+					fieldName +
+					" " +
+					this._ormTypeToDatabaseType(field.type, field.length) +
+					this._getNotnull(field) +
+					this._getIndex(field) +
 					this._getDefault(field, fieldName);
 				console.warn("q", q);
 				await this.connection.query(q);
@@ -336,8 +355,10 @@ const DbMysql = new (class {
 	}
 	_getNotnull(field) {
 		let res = "";
-		if (field.notnull || typeof field.notnull == "undefined") res = " NOT NULL";
-		else res = " NULL";
+		// if (field.notnull || typeof field.notnull == "undefined") res = " NOT NULL";
+		// else res = " NULL";
+		if (field.notnull === false) res = " NULL";
+		else res = " NOT NULL";
 		return res;
 	}
 	_getDefault(field, fieldName = "") {
