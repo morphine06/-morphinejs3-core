@@ -179,7 +179,7 @@ const DbMysql = new (class {
 					this._getDefault(field, fieldName);
 				console.warn("q", q);
 				await this.connection.query(q);
-			} else if (nullChanged) {
+			} else if (nullChanged && !field.model) {
 				let q =
 					"ALTER TABLE " +
 					def.tableName +
