@@ -331,7 +331,7 @@ class Controller {
 		delete req.body[this.model.primary];
 
 		this._checkPopulateSended(req);
-		let row = await this.model.update(where, whereData, req.body).exec();
+		let row = await this.model.updateone(where, whereData, req.body).exec();
 		if (!row) return null;
 		// if (row.length) newrow = row[0];
 		// if (this.modellogevents) await this._log(req, "update", oldrow, newrow);
