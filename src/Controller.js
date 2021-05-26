@@ -100,13 +100,13 @@ class Controller {
 	}
 	async create(req, res) {
 		if (!this.model) return res.sendData("model_not_defined");
-		let row = await this._create(req);
+		let row = await this.createExec();
 		if (!row) return res.sendData("insert_error");
 		res.sendData({ data: row });
 	}
 	async update(req, res) {
 		if (!this.model) return res.sendData("model_not_defined");
-		let row = await this._update(req);
+		let row = await this.updateExec();
 		if (!row) return res.sendData("not_found");
 		res.sendData({ data: row });
 	}
@@ -297,7 +297,8 @@ class Controller {
 		return Object.prototype.toString.call(o) === "[object Object]";
 	}
 
-	async _create(req) {
+	async createExec() {
+		let req = this.req;
 		this._checkPopulateSended(req);
 		let newrow = await this.model.create(req.body).exec(true);
 		if (!newrow) return null;
@@ -321,8 +322,9 @@ class Controller {
 		});
 	}
 
-	async _update(req) {
-		let id = req.params.id || req.params[this.model.primary],
+	async updateExec() {
+		let req = this.req,
+			id = req.params.id || req.params[this.model.primary],
 			where = `${this.model.primary}=?`,
 			whereData = [id],
 			oldrow;
