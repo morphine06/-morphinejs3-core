@@ -57,7 +57,7 @@ class Controller {
 	}
 	async exportcsv(req, res) {
 		if (!this.model) return this.res.sendData("model_not_defined");
-		let { rows, total } = await this.findExec();
+		let { rows } = await this.findExec(); //, total
 
 		let header = [];
 		Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {

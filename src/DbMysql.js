@@ -135,6 +135,7 @@ const DbMysql = new (class {
 				// console.log("row", row);
 				if (row.Field == fieldName) {
 					if (field.notnull === false && row.Null == "NO") nullChanged = true;
+					if (field.notnull !== false && row.Null == "YES") nullChanged = true;
 					type2 = row.Type;
 					def2 = row.Default;
 				}
@@ -209,8 +210,8 @@ const DbMysql = new (class {
 
 			let rows2 = await this.connection.query("SHOW INDEX FROM " + def.tableName + "");
 			for (const [fieldName, field] of Object.entries(def.attributes)) {
-				let createIndex = false,
-					createUnique = false;
+				let createIndex = false;
+				//let createUnique = false;
 				if (field.model || field.index) {
 					createIndex = true;
 					for (let iRows = 0; iRows < rows2.length; iRows++) {
