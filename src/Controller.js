@@ -77,16 +77,15 @@ class Controller {
 		let dest = process.cwd() + "/uploads/temp/";
 		fs.ensureDirSync(dest);
 		dest += "export-" + this.model.def.modelname + ".csv";
-
 		const csvWriter = createCsvWriter({
 			path: dest,
 			header: header,
 		});
-
 		csvWriter
 			.writeRecords(rows) // returns a promise
 			.then(() => {
-				// console.log("...Done");
+				//console.log("...Done");
+				res.header("content-disposition", "attachment; filename=export-csv-" + this.model.def.modelname + ".csv");
 				let readStream = fs.createReadStream(dest);
 				readStream.pipe(res);
 			});
