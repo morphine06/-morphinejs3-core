@@ -20,7 +20,7 @@ module.exports = class DbTable {
 	createEmpty() {
 		let row = {};
 		for (const [fieldName, field] of Object.entries(this.def.attributes)) {
-			if (field.model) return;
+			if (field.model) continue;
 			row[fieldName] = "";
 			let typejs = this.DbMysql._ormTypeToDatabaseType(field.type, "", "typejs");
 			if (typejs == "number") row[fieldName] = 0;
