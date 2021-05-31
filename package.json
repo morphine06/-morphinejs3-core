@@ -1,5 +1,5 @@
 {
-	"name": "@morphinejs3/core",
+	"name": "morphinejs3-core",
 	"version": "3.0.0",
 	"description": "Anti-verbose micro-framework",
 	"main": "lib/main.js",
