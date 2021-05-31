@@ -61,16 +61,21 @@ class Controller {
 
 		let header = [];
 		Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
-			// let posUnderscore = field.indexOf("_");
-			// if (posUnderscore < 0) posUnderscore = 0;
-			// else posUnderscore = posUnderscore + 1;
-			// let title = field.substring(posUnderscore, field.length);
 			let title = field;
 			let t = field.split("_");
 			if (t.length > 1) {
 				t.shift();
 				title = t.join("_");
 			}
+			// fields not exported
+			if (
+				title === "password" ||
+				title === "accesstoken" ||
+				title === "accesstokenexpire" ||
+				title === "refreshtoken" ||
+				title === "forgetpassdate"
+			)
+				return;
 			header.push({ id: field, title });
 		});
 
