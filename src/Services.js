@@ -1,6 +1,7 @@
 import globule from "globule";
 import path from "path";
 import chalk from "chalk";
+import { Config } from "./Config";
 
 const Services = {};
 
@@ -27,7 +28,9 @@ async function loadServices() {
 	}
 
 	console.warn(chalk.yellow(`@Info - Services availables :`));
-	let serviceFiles = globule.find(process.cwd() + "/src/**/*.service.js");
+	let where = "/src";
+	if (Config.app.mode == "production") where = "/lib";
+	let serviceFiles = globule.find(process.cwd() + where + "/**/*.service.js");
 	for (let iService = 0; iService < serviceFiles.length; iService++) {
 		const serviceFile = serviceFiles[iService];
 		let serviceName = path.basename(serviceFile);

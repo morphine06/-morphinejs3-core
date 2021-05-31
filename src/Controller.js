@@ -7,6 +7,7 @@ import { App } from "./App";
 import { Services } from "./Services";
 import { Middlewares } from "./Middlewares";
 import { Models } from "./DbMysql";
+import { Config } from "./Config";
 
 const createCsvWriter = require("csv-writer").createObjectCsvWriter; // pour  écrite des fichiers .csv
 // function Crud(url) {
@@ -394,7 +395,9 @@ class Controller {
 }
 
 async function loadControllers() {
-	let controllerFiles = globule.find(`${process.cwd()}/src/**/*.controller.js`);
+	let where = "/src";
+	if (Config.app.mode == "production") where = "/lib";
+	let controllerFiles = globule.find(`${process.cwd()}${where}/**/*.controller.js`);
 	console.warn(chalk.yellow(`@Info - Routes list :`));
 	for (let i = 0; i < controllerFiles.length; i++) {
 		const controllerFile = controllerFiles[i];

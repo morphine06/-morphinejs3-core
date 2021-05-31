@@ -4,6 +4,7 @@ const chalk = require("chalk");
 
 const globule = require("globule");
 const DbTable = require("./DbTable");
+import { Config } from "./Config";
 
 const DbMysql = new (class {
 	constructor() {
@@ -406,7 +407,9 @@ function Model(models = []) {
 }
 
 async function loadModels() {
-	let files = globule.find(process.cwd() + "/src/**/*.model.js");
+	let where = "/src";
+	if (Config.app.mode == "production") where = "/lib";
+	let files = globule.find(process.cwd() + where + "/**/*.model.js");
 	console.warn(chalk.yellow(`@Info - Models availables :`));
 	for (let iFile = 0; iFile < files.length; iFile++) {
 		let file = files[iFile];

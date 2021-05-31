@@ -1,5 +1,6 @@
 import globule from "globule";
 import chalk from "chalk";
+import { Config } from "./Config";
 
 const Middlewares = [];
 
@@ -51,7 +52,9 @@ function Middleware(middlewares = []) {
 
 async function loadRoutesMiddlewares() {
 	console.warn(chalk.yellow(`@Info - Middlewares availables :`));
-	let middlewareFiles = globule.find(process.cwd() + "/src/**/*.middleware.js");
+	let where = "/src";
+	if (Config.app.mode == "production") where = "/lib";
+	let middlewareFiles = globule.find(process.cwd() + where + "/**/*.middleware.js");
 	for (let i = 0; i < middlewareFiles.length; i++) {
 		const middlewareFile = middlewareFiles[i];
 		let obj = await import(middlewareFile);
