@@ -60,8 +60,8 @@ const MorphineJs = class {
 		await this.initDb();
 		await this.executeMigration();
 		// await loadServices();
-		await this.initBootstrap();
 		await this.initExpress();
+		await this.initBootstrap();
 		await this.initMiddlewares();
 		// this.initResSendData();
 		this.httpserver = await this.initHttpServer();
