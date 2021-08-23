@@ -77,6 +77,7 @@ class Controller {
 				title === "forgetpassdate"
 			)
 				return;
+			if (defField.toExport === false) return;
 			header.push({ id: field, title });
 		});
 
