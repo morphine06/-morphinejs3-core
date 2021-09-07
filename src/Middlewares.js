@@ -58,10 +58,13 @@ async function loadRoutesMiddlewares() {
 	for (let i = 0; i < middlewareFiles.length; i++) {
 		const middlewareFile = middlewareFiles[i];
 		let obj = await import(middlewareFile);
+		// let d = new Date();
+
 		Object.entries(obj).forEach(([name, constructorFn], index) => {
 			Middlewares.push({ name, fn: constructorFn });
 			console.warn(`- ${name}()`);
 		});
+		// console.log("d oooo", new Date() - d);
 	}
 }
 

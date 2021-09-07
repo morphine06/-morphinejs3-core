@@ -45,6 +45,7 @@ const DbMysql = new (class {
 		for (const [fieldName, field] of Object.entries(model.def.attributes)) {
 			if (field.model) toLink.push({ key: fieldName, val: field });
 		}
+		// console.log("toLink", toLink);
 		if (toLink.length) {
 			let q = `select * from information_schema.KEY_COLUMN_USAGE where TABLE_NAME='${model.def.tableName}' && TABLE_SCHEMA='${this.config.connection.database}'`; //COLUMN_NAME, CONSTRAINT_NAME, REFERENCED_COLUMN_NAME, REFERENCED_TABLE_NAME
 			let actualConstraints = await this.connection.query(q);
@@ -407,10 +408,13 @@ function Model(models = []) {
 }
 
 async function loadModels() {
+	// let d = new Date();
 	let where = "/src";
 	if (Config.app.mode == "production") where = "/lib";
 	let files = globule.find(process.cwd() + where + "/**/*.model.js");
 	console.warn(chalk.yellow(`@Info - Models availables :`));
+	// console.log("d1b = ", new Date() - d);
+	// d = new Date();
 	for (let iFile = 0; iFile < files.length; iFile++) {
 		let file = files[iFile];
 		file = file.substring(0, file.length - 3);
@@ -427,13 +431,22 @@ async function loadModels() {
 		DbMysql.models[def.modelname] = new DbTable(def, DbMysql);
 		console.warn(`- ${def.modelname}`);
 	}
+	if (Config.mysql.migrate == "alter") {
+		// console.log("d2b = ", new Date() - d);
+		// d = new Date();
 
-	for (const model of Object.values(DbMysql.models)) {
-		await DbMysql.synchronize(model.def);
-	}
+		for (const model of Object.values(DbMysql.models)) {
+			await DbMysql.synchronize(model.def);
+		}
+		// console.log("d3b = ", new Date() - d);
+		// d = new Date();
 
-	for (const model of Object.values(DbMysql.models)) {
-		await DbMysql.constraints(model);
+		for (const model of Object.values(DbMysql.models)) {
+			await DbMysql.constraints(model);
+		}
+
+		// console.log("d4b = ", new Date() - d);
+		// d = new Date();
 	}
 }
 

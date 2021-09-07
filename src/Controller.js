@@ -401,12 +401,14 @@ async function loadControllers() {
 	let controllerFiles = globule.find(`${process.cwd()}${where}/**/*.controller.js`);
 	console.warn(chalk.yellow(`@Info - Routes list :`));
 	for (let i = 0; i < controllerFiles.length; i++) {
+		// let d = new Date();
 		const controllerFile = controllerFiles[i];
 		let obj = await import(controllerFile);
 		Object.entries(obj).forEach(([name, constructorFn], index) => {
 			let c = new constructorFn();
 			c._addRoutes();
 		});
+		// console.log("d oooo", new Date() - d);
 	}
 }
 

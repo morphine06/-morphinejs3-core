@@ -8,9 +8,12 @@ import { Controller, loadControllers } from "./Controller";
 import { Get, Post, Put, Delete, Crud } from "./MethodDecorators";
 import { Middlewares, Middleware, loadRoutesMiddlewares } from "./Middlewares";
 
+import dayjs from "dayjs";
 import { DbMysql, Model, Models, Migration, loadModels } from "./DbMysql";
 
 const rootDir = process.cwd();
+
+// console.log("PPPPPPPPOOOOOOOOOOOOOPPPPPP");
 
 const MorphineJs = class {
 	constructor() {}
@@ -32,8 +35,12 @@ const MorphineJs = class {
 				accept();
 			});
 		});
-		console.warn(chalk.green(`Listening on ${Config.app.host} ! - ${Config.app.mode}`));
-		return httpserver;
+		console.warn(chalk.green(`Listening on ${Config.app.host} ! - ${Config.app.mode} - ${dayjs().format("YYYY-MM-DD HH:mm")}`));
+		if (Config.app.mode !== "production") {
+			if (Config.mysql.migrate == "alter") console.warn(chalk.red(`To speedup startup change Config.mysql.migrate to 'safe'`));
+			else console.warn(chalk.red(`Auto-migrate is disabled, change Config.mysql.migrate to 'alter' if you do breaking change to database`));
+			return httpserver;
+		}
 	}
 	initResSendData() {
 		return function (req, res, next) {
