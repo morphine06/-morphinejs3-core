@@ -153,9 +153,11 @@ class Controller {
 		let where = "1=1",
 			whereData = [];
 		function findCreateWhereForField(tx, field, value, defField) {
-			if (defField.type == "boolean" && value === "true") value = 1;
-			if (defField.type == "boolean" && value === "false") value = 0;
-			if (value.indexOf("contains:") === 0) {
+			if (defField.type == "boolean" && value === "true") {
+				where += ` && ${tx}.${field}=1`;
+			} else if (defField.type == "boolean" && value === "false") {
+				where += ` && ${tx}.${field}=0`;
+			} else if (value.indexOf("contains:") === 0) {
 				where += ` && ${tx}.${field} like ?`;
 				whereData.push("%" + value.substring(9) + "%");
 			} else if (value.indexOf("startwith:") === 0) {
