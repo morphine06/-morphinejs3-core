@@ -152,7 +152,9 @@ class Controller {
 	async findCreateWhere(req) {
 		let where = "1=1",
 			whereData = [];
-		function findCreateWhereForField(tx, field, value) {
+		function findCreateWhereForField(tx, field, value, defField) {
+			if (defField.type == "boolean" && value === "true") value = 1;
+			if (defField.type == "boolean" && value === "false") value = 0;
 			if (value.indexOf("contains:") === 0) {
 				where += ` && ${tx}.${field} like ?`;
 				whereData.push("%" + value.substring(9) + "%");
@@ -181,10 +183,10 @@ class Controller {
 		}
 
 		Object.entries(this.model.def.attributes).forEach(([field, defField], index) => {
-			if (req.query[field]) findCreateWhereForField("t1", field, req.query[field] + "");
-			if (req.query[field + "_"]) findCreateWhereForField("t1", field, req.query[field + "_"]);
-			if (req.query[field + "__"]) findCreateWhereForField("t1", field, req.query[field + "__"]);
-			if (req.query[field + "___"]) findCreateWhereForField("t1", field, req.query[field + "___"]);
+			if (req.query[field]) findCreateWhereForField("t1", field, req.query[field] + "", defField);
+			if (req.query[field + "_"]) findCreateWhereForField("t1", field, req.query[field + "_"], defField);
+			if (req.query[field + "__"]) findCreateWhereForField("t1", field, req.query[field + "__"], defField);
+			if (req.query[field + "___"]) findCreateWhereForField("t1", field, req.query[field + "___"], defField);
 		});
 		return { where, whereData };
 	}
