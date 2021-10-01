@@ -12,7 +12,7 @@ function transformController(url, original) {
 			if (Services.Middlewares && Services.Middlewares.catchControllerErrors) {
 				Services.Middlewares.catchControllerErrors(args[0], args[1], e);
 			} else {
-				console.warn(chalk.red(`Error in controller : ${e}\nNot restarted.`));
+				console.warn(chalk.red(`Error in controller ${this.req.url} : ${e}\nNot restarted.`), e);
 				args[1].send({ error: `Error in controller` });
 			}
 		}
