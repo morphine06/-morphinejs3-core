@@ -1,6 +1,6 @@
 {
 	"name": "morphinejs3-core",
-	"version": "3.0.9",
+	"version": "3.0.10",
 	"description": "Anti-verbose micro-framework",
 	"main": "lib/main.js",
 	"scripts": {
