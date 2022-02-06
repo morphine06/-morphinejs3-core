@@ -34,7 +34,7 @@ class Controller {
 					if (diff > 1000) diff = diff / 1000 + "s";
 					else diff += "ms";
 					// eslint-disable-next-line
-					console.warn(`${dayjs().format("YYYY-MM-DD HH:mm:ss")} - GET ${route.url} - ${diff}`);
+					console.warn(`${dayjs().format("YYYY-MM-DD HH:mm:ss")} - ${route.method.toUpperCase()} ${route.url} - ${diff}`);
 				});
 				next();
 			});
